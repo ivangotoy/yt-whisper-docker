@@ -1,0 +1,121 @@
+#!/usr/bin/env sh
+set -eu
+
+url="${1:-}"
+
+if [ -z "$url" ]; then
+  printf 'usage: yt-whisper <youtube-url>\n'
+  exit 1
+fi
+
+model="${YT_WHISPER_MODEL:-large-v3-turbo}"
+language="${YT_WHISPER_LANG:-auto}"
+model_file="/models/$model/ggml-$model.bin"
+root="/out"
+audio_dir="$root/audio"
+wav_dir="$root/wav"
+transcript_dir="$root/transcripts"
+log_dir="$root/logs"
+log_file="$log_dir/yt-whisper-$(date +%Y%m%d-%H%M%S).log"
+
+mkdir -p "$audio_dir" "$wav_dir" "$transcript_dir" "$log_dir"
+
+if [ ! -f "$model_file" ]; then
+  printf 'missing model: %s\n' "$model_file"
+  exit 1
+fi
+
+printf 'Working...\n'
+
+downloaded_file="$(
+  yt-dlp \
+    --quiet \
+    --no-warnings \
+    --no-playlist \
+    -f 'ba[ext=m4a]/ba' \
+    -x \
+    --audio-format m4a \
+    --audio-quality 0 \
+    --restrict-filenames \
+    --no-simulate \
+    --print after_move:filepath \
+    -o "$audio_dir/%(title).180B-%(id)s.%(ext)s" \
+    "$url" 2>>"$log_file" | tail -n 1
+)"
+
+if [ -z "$downloaded_file" ] || [ ! -f "$downloaded_file" ]; then
+  printf 'downloaded audio not found\n'
+  printf 'log: %s\n' "$log_file"
+  tail -80 "$log_file" 2>/dev/null || true
+  exit 1
+fi
+
+base="$(basename "$downloaded_file")"
+base="${base%.*}"
+wav="$wav_dir/$base.wav"
+transcript_base="$transcript_dir/$base"
+txt="$transcript_base.txt"
+srt="$transcript_base.srt"
+
+rm -f -- "$wav" "$txt" "$srt"
+
+if ! ffmpeg -nostdin -hide_banner -loglevel error -y -i "$downloaded_file" -ar 16000 -ac 1 -c:a pcm_s16le "$wav" >>"$log_file" 2>&1; then
+  printf 'ffmpeg conversion failed\n'
+  printf 'log: %s\n' "$log_file"
+  tail -80 "$log_file" 2>/dev/null || true
+  exit 1
+fi
+
+if ! whisper-cli -m "$model_file" -f "$wav" -l "$language" -otxt -osrt -of "$transcript_base" >>"$log_file" 2>&1; then
+  printf 'whisper transcription failed\n'
+  printf 'log: %s\n' "$log_file"
+  tail -80 "$log_file" 2>/dev/null || true
+  exit 1
+fi
+
+if [ ! -f "$txt" ]; then
+  printf 'transcript not found: %s\n' "$txt"
+  printf 'log: %s\n' "$log_file"
+  tail -80 "$log_file" 2>/dev/null || true
+  exit 1
+fi
+
+host_path() {
+  case "$1" in
+    /out/*)
+      if [ -n "${YT_WHISPER_HOST_OUT:-}" ]; then
+        printf '%s/%s' "$YT_WHISPER_HOST_OUT" "${1#/out/}"
+      else
+        printf '%s' "$1"
+      fi
+      ;;
+    *)
+      printf '%s' "$1"
+      ;;
+  esac
+}
+
+host_txt="$(host_path "$txt")"
+host_srt="$(host_path "$srt")"
+host_log="$(host_path "$log_file")"
+host_audio="$(host_path "$downloaded_file")"
+host_wav="$(host_path "$wav")"
+
+printf '\nDelete downloaded audio and temporary WAV? [y/N]: '
+read -r reply
+
+case "$reply" in
+  y|Y|yes|YES|Yes)
+    rm -f -- "$downloaded_file" "$wav"
+    printf '\nTEMP_FILES\ndeleted\n'
+    ;;
+  *)
+    printf '\nTEMP_FILES\nkept\n'
+    printf '\nAUDIO_FILE\n%s\n' "$host_audio"
+    printf '\nWAV_FILE\n%s\n' "$host_wav"
+    ;;
+esac
+
+printf '\nREADY_TEXT_FILE\n%s\n' "$host_txt"
+printf '\nREADY_SRT_FILE\n%s\n' "$host_srt"
+printf '\nREADY_LOG_FILE\n%s\n' "$host_log"
