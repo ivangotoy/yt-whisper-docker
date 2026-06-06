@@ -8,7 +8,7 @@ if [ -z "$url" ]; then
   exit 1
 fi
 
-model="${YT_WHISPER_MODEL:-large-v3-turbo}"
+model="${YT_WHISPER_MODEL:-large-v3}"
 language="${YT_WHISPER_LANG:-auto}"
 model_file="/models/$model/ggml-$model.bin"
 root="/out"
@@ -66,7 +66,7 @@ if ! ffmpeg -nostdin -hide_banner -loglevel error -y -i "$downloaded_file" -ar 1
   exit 1
 fi
 
-if ! whisper-cli -m "$model_file" -f "$wav" -l "$language" -otxt -osrt -of "$transcript_base" >>"$log_file" 2>&1; then
+if ! whisper-cli -m "$model_file" -f "$wav" -l "$language" -mc "${YT_WHISPER_MAX_CONTEXT:-0}" -otxt -osrt -of "$transcript_base" >>"$log_file" 2>&1; then
   printf 'whisper transcription failed\n'
   printf 'log: %s\n' "$log_file"
   tail -80 "$log_file" 2>/dev/null || true

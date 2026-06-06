@@ -2,7 +2,7 @@ ARG WHISPER_IMAGE_TAG=main
 FROM ghcr.io/ggml-org/whisper.cpp:${WHISPER_IMAGE_TAG}
 
 ARG YT_DLP_URL="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux"
-ARG YT_WHISPER_MODEL="large-v3-turbo"
+ARG YT_WHISPER_MODEL="large-v3"
 
 ENV YT_WHISPER_MODEL="${YT_WHISPER_MODEL}"
 ENV YT_WHISPER_LANG="auto"

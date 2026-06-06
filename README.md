@@ -1,5 +1,9 @@
 # yt-whisper-docker
 
+MAIN REPOSITORY: https://git.digtvbg.com/ivangotoy/yt-whisper-docker
+
+READ-ONLY MIRROR: https://github.com/ivangotoy/yt-whisper-docker.git
+
 YouTube audio transcription with yt-dlp, whisper.cpp, and Docker.
 
 The project downloads audio from a YouTube URL, converts it to WAV, transcribes it with whisper.cpp, and writes TXT, SRT, and log files.
@@ -32,7 +36,7 @@ Build the NVIDIA / CUDA image:
 
     ./scripts/build.sh nvidia
 
-The large-v3-turbo model is downloaded and baked into the image during build.
+The large-v3 model is downloaded and baked into the image during build.
 
 ## Running
 
@@ -84,3 +88,12 @@ Temporary downloaded audio and WAV files:
     output/wav/
 
 After transcription, the script asks whether to delete the downloaded audio and temporary WAV file.
+
+## Long audio stability
+
+The default max context is set to `0` to avoid Whisper long-form repetition loops on long videos.
+
+Override it only if needed:
+
+    YT_WHISPER_MAX_CONTEXT=-1 ./scripts/run.sh cpu 'https://www.youtube.com/watch?v=VIDEO_ID'
+
