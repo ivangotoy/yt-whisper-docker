@@ -1,5 +1,3 @@
-.git
-output
-models
-README.md
-scripts
+*
+!Dockerfile
+!yt-whisper
