@@ -1,0 +1,107 @@
+#!/usr/bin/env zsh
+
+norm_lang() {
+  raw="$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]' | tr '_' '-')"
+  base="$(printf '%s' "$raw" | sed 's/[^a-z0-9].*$//')"
+  case "$base" in
+    ""|none|null|unknown|und|na) printf '' ;;
+    iw) printf he ;;
+    in) printf id ;;
+    jw) printf jv ;;
+    *) printf '%s' "$base" ;;
+  esac
+}
+
+browser_candidates() {
+  [[ -f "$HOME/.config/thorium/Default/Cookies" ]] && print -r -- "chromium:$HOME/.config/thorium/Default"
+  [[ -f "$HOME/.config/google-chrome/Default/Cookies" ]] && print -r -- "chrome:$HOME/.config/google-chrome/Default"
+  [[ -f "$HOME/.config/chromium/Default/Cookies" ]] && print -r -- "chromium:$HOME/.config/chromium/Default"
+  [[ -f "$HOME/.config/BraveSoftware/Brave-Browser/Default/Cookies" ]] && print -r -- "brave:$HOME/.config/BraveSoftware/Brave-Browser/Default"
+  [[ -f "$HOME/.config/microsoft-edge/Default/Cookies" ]] && print -r -- "edge:$HOME/.config/microsoft-edge/Default"
+  [[ -f "$HOME/.config/vivaldi/Default/Cookies" ]] && print -r -- "vivaldi:$HOME/.config/vivaldi/Default"
+  for p in "$HOME"/.mozilla/firefox/*/cookies.sqlite(N); do
+    print -r -- "firefox:${p:h}"
+  done
+}
+
+[[ $# -eq 2 ]] || { printf 'usage: %s cpu|amd|nvidia URL\n' "$0"; exit 2; }
+
+backend="$1"
+url="$2"
+image="${YT_WHISPER_IMAGE:-digtvbg.com:6000/yt-whisper-docker:$backend}"
+out_dir="$(realpath -m "${YT_WHISPER_OUTPUT_DIR:-$PWD/output}")"
+fmt="${YT_WHISPER_YTDLP_FORMAT:-bestaudio/best}"
+cookie_source="none"
+detected_raw=""
+detected=""
+requested="$(norm_lang "${YT_WHISPER_LANG:-}")"
+lang=""
+yt_args=()
+
+command -v docker >/dev/null 2>&1 || { printf 'docker not found in PATH\n'; exit 1; }
+command -v yt-dlp >/dev/null 2>&1 || { printf 'yt-dlp not found in PATH\n'; exit 1; }
+
+mkdir -p "$out_dir/audio" "$out_dir/wav" "$out_dir/transcripts" "$out_dir/logs" || exit 1
+
+if [[ -n "${YT_WHISPER_COOKIES:-}" ]]; then
+  [[ -f "$YT_WHISPER_COOKIES" ]] || { printf 'cookie file not found: %s\n' "$YT_WHISPER_COOKIES"; exit 1; }
+  yt_args=(--cookies "$YT_WHISPER_COOKIES")
+  cookie_source="env:file:$YT_WHISPER_COOKIES"
+elif [[ -n "${YT_WHISPER_COOKIES_FROM_BROWSER:-}" ]]; then
+  yt_args=(--cookies-from-browser "$YT_WHISPER_COOKIES_FROM_BROWSER")
+  cookie_source="env:browser:$YT_WHISPER_COOKIES_FROM_BROWSER"
+else
+  for c in "${(@f)$(browser_candidates)}"; do
+    if yt-dlp --cookies-from-browser "$c" --no-warnings --no-playlist -f "$fmt" --skip-download --print '%(language)s' "$url" >/dev/null 2>&1; then
+      yt_args=(--cookies-from-browser "$c")
+      cookie_source="auto:browser:$c"
+      break
+    fi
+  done
+fi
+
+detected_raw="$(yt-dlp "${yt_args[@]}" --no-warnings --no-playlist -f "$fmt" --skip-download --print '%(language)s' "$url" 2>/dev/null | tail -1)"
+detected="$(norm_lang "$detected_raw")"
+
+if [[ -n "$requested" && "$requested" != auto ]]; then
+  if [[ -n "$detected" && "$detected" != "$requested" && "${YT_WHISPER_ALLOW_LANG_MISMATCH:-0}" != 1 ]]; then
+    printf 'language mismatch: detected=%s requested=%s\n' "$detected" "$requested"
+    printf 'COOKIE_SOURCE=%s\nAUTO_LANGUAGE_RAW=%s\nAUTO_LANGUAGE=%s\n' "$cookie_source" "$detected_raw" "$detected"
+    exit 1
+  fi
+  lang="$requested"
+elif [[ -n "$detected" ]]; then
+  lang="$detected"
+else
+  lang=auto
+fi
+
+printf 'COOKIE_SOURCE=%s\nAUTO_LANGUAGE_RAW=%s\nAUTO_LANGUAGE=%s\n' "$cookie_source" "$detected_raw" "$detected"
+
+downloaded="$(yt-dlp "${yt_args[@]}" --quiet --no-warnings --no-playlist -f "$fmt" -x --audio-format m4a --audio-quality 0 --restrict-filenames --no-simulate --print after_move:filepath -o "$out_dir/audio/%(title).180B-%(id)s.%(ext)s" "$url" | tail -1)"
+[[ -f "$downloaded" ]] || { printf 'downloaded audio not found\n'; exit 1; }
+
+stem="${downloaded:t:r}"
+rel="audio/${downloaded:t}"
+docker_args=(run --rm -v "$out_dir:/out")
+no_gpu_arg=""
+
+case "$backend" in
+  cpu) no_gpu_arg="-ng" ;;
+  amd) [[ -e /dev/dri ]] || { printf '/dev/dri not found\n'; exit 1; }; docker_args+=(--device /dev/dri) ;;
+  nvidia) docker_args+=(--gpus all) ;;
+  *) printf 'usage: %s cpu|amd|nvidia URL\n' "$0"; exit 2 ;;
+esac
+
+docker "${docker_args[@]}" -e REL="$rel" -e STEM="$stem" -e LANG="$lang" -e NO_GPU_ARG="$no_gpu_arg" --entrypoint sh "$image" -c '
+set -eu
+model="${YT_WHISPER_MODEL_FILE:-/models/large-v3/ggml-large-v3.bin}"
+ffmpeg -nostdin -hide_banner -loglevel error -y -i "/out/$REL" -ar 16000 -ac 1 -c:a pcm_s16le "/out/wav/$STEM.wav"
+whisper-cli -m "$model" -f "/out/wav/$STEM.wav" -l "$LANG" ${NO_GPU_ARG:+$NO_GPU_ARG} -mc "${YT_WHISPER_MAX_CONTEXT:-0}" -otxt -osrt -of "/out/transcripts/$STEM" >"/out/logs/$STEM.log" 2>&1
+'
+
+txt="$out_dir/transcripts/$stem.txt"
+log="$out_dir/logs/$stem.log"
+[[ -f "$txt" ]] || { printf 'transcript not found: %s\n' "$txt"; tail -80 "$log" 2>/dev/null || true; exit 1; }
+
+printf '\nREADY_TEXT_FILE\n%s\nREADY_SRT_FILE\n%s\nREADY_LOG_FILE\n%s\n' "$txt" "$out_dir/transcripts/$stem.srt" "$log"

@@ -1,38 +1,169 @@
 #!/usr/bin/env sh
-set -eu
 
-url="${1:-}"
+normalize_lang() {
+  raw="$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]' | tr '_' '-')"
+  base="$(printf '%s' "$raw" | sed 's/[^a-z0-9].*$//')"
 
-if [ -z "$url" ]; then
-  printf 'usage: yt-whisper <youtube-url>\n'
+  case "$base" in
+    ""|none|null|unknown|und|na)
+      printf ''
+      ;;
+    auto)
+      printf 'auto'
+      ;;
+    iw)
+      printf 'he'
+      ;;
+    in)
+      printf 'id'
+      ;;
+    jw)
+      printf 'jv'
+      ;;
+    *)
+      printf '%s' "$base"
+      ;;
+  esac
+}
+
+yt_dlp_run() {
+  if [ -n "${yt_dlp_cookies_file:-}" ] && [ -n "${YT_WHISPER_COOKIES_FROM_BROWSER:-}" ]; then
+    "$yt_dlp_bin" --cookies "$yt_dlp_cookies_file" --cookies-from-browser "$YT_WHISPER_COOKIES_FROM_BROWSER" "$@"
+  elif [ -n "${yt_dlp_cookies_file:-}" ]; then
+    "$yt_dlp_bin" --cookies "$yt_dlp_cookies_file" "$@"
+  elif [ -n "${YT_WHISPER_COOKIES_FROM_BROWSER:-}" ]; then
+    "$yt_dlp_bin" --cookies-from-browser "$YT_WHISPER_COOKIES_FROM_BROWSER" "$@"
+  else
+    "$yt_dlp_bin" "$@"
+  fi
+}
+
+if [ "$#" -ne 1 ]; then
+  printf 'usage: yt-whisper URL\n'
+  exit 2
+fi
+
+url="$1"
+out_dir="${YT_WHISPER_OUTPUT_DIR:-/out}"
+audio_dir="$out_dir/audio"
+wav_dir="$out_dir/wav"
+transcript_dir="$out_dir/transcripts"
+log_dir="$out_dir/logs"
+ts="$(date +%Y%m%d-%H%M%S)"
+yt_dlp_bin="$(command -v yt-dlp 2>/dev/null)"
+ffmpeg_bin="$(command -v ffmpeg 2>/dev/null)"
+whisper_bin="$(command -v whisper-cli 2>/dev/null)"
+model="${YT_WHISPER_MODEL:-large-v3}"
+model_file="${YT_WHISPER_MODEL_FILE:-/models/$model/ggml-$model.bin}"
+yt_dlp_format="${YT_WHISPER_YTDLP_FORMAT:-ba[ext=m4a]/ba}"
+log_file="$log_dir/yt-whisper-$ts.log"
+yt_dlp_cookies_file=""
+yt_whisper_no_gpu_arg=""
+if [ "${YT_WHISPER_NO_GPU:-0}" = "1" ]; then
+  yt_whisper_no_gpu_arg="-ng"
+fi
+trap 'rm -f "${yt_dlp_cookies_file:-}" 2>/dev/null || true' EXIT HUP INT TERM
+
+if [ -z "$yt_dlp_bin" ]; then
+  printf 'yt-dlp not found in PATH\n'
   exit 1
 fi
 
-model="${YT_WHISPER_MODEL:-large-v3}"
-language="${YT_WHISPER_LANG:-auto}"
-model_file="/models/$model/ggml-$model.bin"
-root="/out"
-audio_dir="$root/audio"
-wav_dir="$root/wav"
-transcript_dir="$root/transcripts"
-log_dir="$root/logs"
-log_file="$log_dir/yt-whisper-$(date +%Y%m%d-%H%M%S).log"
+if [ -z "$ffmpeg_bin" ]; then
+  printf 'ffmpeg not found in PATH\n'
+  exit 1
+fi
 
-mkdir -p "$audio_dir" "$wav_dir" "$transcript_dir" "$log_dir"
+if [ -z "$whisper_bin" ]; then
+  printf 'whisper-cli not found in PATH\n'
+  exit 1
+fi
 
 if [ ! -f "$model_file" ]; then
-  printf 'missing model: %s\n' "$model_file"
+  printf 'model not found: %s\n' "$model_file"
   exit 1
+fi
+
+mkdir -p "$audio_dir" "$wav_dir" "$transcript_dir" "$log_dir" || exit 1
+
+if [ -n "${YT_WHISPER_COOKIES:-}" ]; then
+  if [ ! -f "$YT_WHISPER_COOKIES" ]; then
+    printf 'cookie file not found: %s\n' "$YT_WHISPER_COOKIES"
+    exit 1
+  fi
+  yt_dlp_cookies_file="$(mktemp -t yt-whisper-cookies.XXXXXX.txt)" || exit 1
+  cp "$YT_WHISPER_COOKIES" "$yt_dlp_cookies_file" || exit 1
+  chmod 600 "$yt_dlp_cookies_file" 2>/dev/null || true
 fi
 
 printf 'Working...\n'
 
+{
+  printf 'URL=%s\n' "$url"
+  printf 'MODEL_FILE=%s\n' "$model_file"
+  printf 'YT_DLP_FORMAT=%s\n' "$yt_dlp_format"
+  printf 'YT_WHISPER_MAX_CONTEXT=%s\n' "${YT_WHISPER_MAX_CONTEXT:-0}"
+  printf 'YT_WHISPER_LANG_REQUESTED=%s\n' "${YT_WHISPER_LANG:-auto}"
+  printf 'YT_WHISPER_COOKIES_SET=%s\n' "$([ -n "${YT_WHISPER_COOKIES:-}" ] && printf yes || printf no)"
+  printf 'YT_WHISPER_COOKIES_FROM_BROWSER_SET=%s\n' "$([ -n "${YT_WHISPER_COOKIES_FROM_BROWSER:-}" ] && printf yes || printf no)"
+} >>"$log_file"
+
+detected_lang_raw="$(
+  yt_dlp_run \
+    --no-warnings \
+    --no-playlist \
+    -f "$yt_dlp_format" \
+    --skip-download \
+    --print '%(language)s' \
+    "$url" 2>>"$log_file" | tail -n 1
+)"
+
+detected_lang="$(normalize_lang "$detected_lang_raw")"
+requested_lang="$(normalize_lang "${YT_WHISPER_LANG:-auto}")"
+
+if [ -z "$requested_lang" ] || [ "$requested_lang" = "auto" ]; then
+  if [ -n "$detected_lang" ] && [ "$detected_lang" != "auto" ]; then
+    whisper_language="$detected_lang"
+  else
+    whisper_language="auto"
+  fi
+else
+  if [ -n "$detected_lang" ] && [ "$detected_lang" != "$requested_lang" ] && [ "${YT_WHISPER_ALLOW_LANG_MISMATCH:-0}" != "1" ]; then
+    {
+      printf 'LANGUAGE_MISMATCH=1\n'
+      printf 'DETECTED_LANGUAGE_RAW=%s\n' "$detected_lang_raw"
+      printf 'DETECTED_LANGUAGE=%s\n' "$detected_lang"
+      printf 'REQUESTED_LANGUAGE=%s\n' "$requested_lang"
+      printf 'Set YT_WHISPER_ALLOW_LANG_MISMATCH=1 to override this guard.\n'
+    } >>"$log_file"
+    printf 'language mismatch: detected=%s requested=%s\n' "${detected_lang:-unknown}" "$requested_lang"
+    printf 'log: %s\n' "$log_file"
+    exit 1
+  fi
+  whisper_language="$requested_lang"
+fi
+
+{
+  printf 'DETECTED_LANGUAGE_RAW=%s\n' "$detected_lang_raw"
+  printf 'DETECTED_LANGUAGE=%s\n' "$detected_lang"
+  printf 'WHISPER_LANGUAGE=%s\n' "$whisper_language"
+} >>"$log_file"
+
+if [ "${YT_WHISPER_PROBE_ONLY:-0}" = "1" ]; then
+  printf '\nPROBE_ONLY\n'
+  printf 'DETECTED_LANGUAGE_RAW=%s\n' "$detected_lang_raw"
+  printf 'DETECTED_LANGUAGE=%s\n' "$detected_lang"
+  printf 'WHISPER_LANGUAGE=%s\n' "$whisper_language"
+  printf '\nREADY_LOG_FILE\n%s\n' "$log_file"
+  exit 0
+fi
+
 downloaded_file="$(
-  yt-dlp \
+  yt_dlp_run \
     --quiet \
     --no-warnings \
     --no-playlist \
-    -f 'ba[ext=m4a]/ba' \
+    -f "$yt_dlp_format" \
     -x \
     --audio-format m4a \
     --audio-quality 0 \
@@ -50,23 +181,36 @@ if [ -z "$downloaded_file" ] || [ ! -f "$downloaded_file" ]; then
   exit 1
 fi
 
-base="$(basename "$downloaded_file")"
-base="${base%.*}"
-wav="$wav_dir/$base.wav"
-transcript_base="$transcript_dir/$base"
+stem="$(basename "$downloaded_file")"
+stem="${stem%.*}"
+wav="$wav_dir/$stem.wav"
+transcript_base="$transcript_dir/$stem"
 txt="$transcript_base.txt"
 srt="$transcript_base.srt"
 
 rm -f -- "$wav" "$txt" "$srt"
 
-if ! ffmpeg -nostdin -hide_banner -loglevel error -y -i "$downloaded_file" -ar 16000 -ac 1 -c:a pcm_s16le "$wav" >>"$log_file" 2>&1; then
+if ! "$ffmpeg_bin" -nostdin -hide_banner -loglevel error -y \
+  -i "$downloaded_file" \
+  -ar 16000 \
+  -ac 1 \
+  -c:a pcm_s16le \
+  "$wav" >>"$log_file" 2>&1; then
   printf 'ffmpeg conversion failed\n'
   printf 'log: %s\n' "$log_file"
   tail -80 "$log_file" 2>/dev/null || true
   exit 1
 fi
 
-if ! whisper-cli -m "$model_file" -f "$wav" -l "$language" -mc "${YT_WHISPER_MAX_CONTEXT:-0}" -otxt -osrt -of "$transcript_base" >>"$log_file" 2>&1; then
+if ! "$whisper_bin" \
+  -m "$model_file" \
+  -f "$wav" \
+  -l "$whisper_language" \
+  ${yt_whisper_no_gpu_arg:+$yt_whisper_no_gpu_arg} \
+  -mc "${YT_WHISPER_MAX_CONTEXT:-0}" \
+  -otxt \
+  -osrt \
+  -of "$transcript_base" >>"$log_file" 2>&1; then
   printf 'whisper transcription failed\n'
   printf 'log: %s\n' "$log_file"
   tail -80 "$log_file" 2>/dev/null || true
@@ -80,42 +224,18 @@ if [ ! -f "$txt" ]; then
   exit 1
 fi
 
-host_path() {
-  case "$1" in
-    /out/*)
-      if [ -n "${YT_WHISPER_HOST_OUT:-}" ]; then
-        printf '%s/%s' "$YT_WHISPER_HOST_OUT" "${1#/out/}"
-      else
-        printf '%s' "$1"
-      fi
-      ;;
-    *)
-      printf '%s' "$1"
-      ;;
-  esac
-}
+printf '\nTEXT\n'
+cat "$txt"
 
-host_txt="$(host_path "$txt")"
-host_srt="$(host_path "$srt")"
-host_log="$(host_path "$log_file")"
-host_audio="$(host_path "$downloaded_file")"
-host_wav="$(host_path "$wav")"
+if [ "${YT_WHISPER_KEEP_TEMP:-0}" = "1" ]; then
+  printf '\nTEMP_FILES\nkept\n'
+  printf '\nAUDIO_FILE\n%s\n' "$downloaded_file"
+  printf '\nWAV_FILE\n%s\n' "$wav"
+else
+  rm -f -- "$downloaded_file" "$wav"
+  printf '\nTEMP_FILES\ndeleted\n'
+fi
 
-printf '\nDelete downloaded audio and temporary WAV? [y/N]: '
-read -r reply
-
-case "$reply" in
-  y|Y|yes|YES|Yes)
-    rm -f -- "$downloaded_file" "$wav"
-    printf '\nTEMP_FILES\ndeleted\n'
-    ;;
-  *)
-    printf '\nTEMP_FILES\nkept\n'
-    printf '\nAUDIO_FILE\n%s\n' "$host_audio"
-    printf '\nWAV_FILE\n%s\n' "$host_wav"
-    ;;
-esac
-
-printf '\nREADY_TEXT_FILE\n%s\n' "$host_txt"
-printf '\nREADY_SRT_FILE\n%s\n' "$host_srt"
-printf '\nREADY_LOG_FILE\n%s\n' "$host_log"
+printf '\nREADY_TEXT_FILE\n%s\n' "$txt"
+printf '\nREADY_SRT_FILE\n%s\n' "$srt"
+printf '\nREADY_LOG_FILE\n%s\n' "$log_file"
