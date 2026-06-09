@@ -1,11 +1,12 @@
 ARG CUDA_VERSION
 ARG UBUNTU_VERSION
-ARG BASE_CUDA_DEV_CONTAINER=nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION}
-ARG BASE_CUDA_RUN_CONTAINER=nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu${UBUNTU_VERSION}
+ARG BASE_CUDA_DEV_CONTAINER=nvidia/cuda:13.3.0-devel-ubuntu26.04
+ARG BASE_CUDA_RUN_CONTAINER=nvidia/cuda:13.3.0-runtime-ubuntu26.04
 ARG WHISPER_CPP_REF=master
 ARG YT_WHISPER_MODEL=large-v3
-ARG BUILD_JOBS=1
+ARG BUILD_JOBS=24
 ARG CMAKE_CUDA_ARCHITECTURES
+ARG YT_DLP_URL="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux"
 
 FROM ${BASE_CUDA_DEV_CONTAINER} AS build
 
@@ -35,6 +36,7 @@ RUN git clone https://github.com/ggml-org/whisper.cpp.git /src && \
 FROM ${BASE_CUDA_RUN_CONTAINER}
 
 ARG YT_WHISPER_MODEL
+ARG YT_DLP_URL
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LD_LIBRARY_PATH=/usr/local/cuda/compat:/usr/local/cuda/lib64
@@ -44,7 +46,9 @@ ENV YT_WHISPER_LANG="auto"
 ENV YT_WHISPER_NO_GPU="0"
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates ffmpeg libgomp1 libstdc++6 && \
+    apt-get install -y --no-install-recommends ca-certificates curl ffmpeg libgomp1 libstdc++6 && \
+    curl -fsSL "$YT_DLP_URL" -o /usr/local/bin/yt-dlp && \
+    chmod +x /usr/local/bin/yt-dlp && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /src/build/bin/whisper-cli /usr/local/bin/whisper-cli

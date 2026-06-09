@@ -4,6 +4,7 @@ ARG YT_WHISPER_MODEL=large-v3
 ARG WHISPER_BACKEND=cpu
 ARG YT_WHISPER_NO_GPU=0
 ARG BUILD_JOBS=2
+ARG YT_DLP_URL="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux"
 
 FROM ubuntu:${UBUNTU_TAG} AS build
 
@@ -15,7 +16,7 @@ ARG BUILD_JOBS
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates curl git bash cmake build-essential pkg-config libgomp1 libvulkan-dev glslang-tools glslc spirv-headers glslc spirv-headers && \
+    apt-get install -y --no-install-recommends ca-certificates curl git bash cmake build-essential pkg-config libgomp1 libvulkan-dev glslang-tools glslc spirv-headers && \
     rm -rf /var/lib/apt/lists/*
 
 RUN git clone https://github.com/ggml-org/whisper.cpp.git /src && \
@@ -38,6 +39,7 @@ FROM ubuntu:${UBUNTU_TAG}
 ARG YT_WHISPER_MODEL
 ARG WHISPER_BACKEND
 ARG YT_WHISPER_NO_GPU
+ARG YT_DLP_URL
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV YT_WHISPER_MODEL="${YT_WHISPER_MODEL}"
@@ -46,7 +48,9 @@ ENV YT_WHISPER_LANG="auto"
 ENV YT_WHISPER_NO_GPU="${YT_WHISPER_NO_GPU}"
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates ffmpeg libgomp1 libstdc++6 libvulkan1 mesa-vulkan-drivers && \
+    apt-get install -y --no-install-recommends ca-certificates curl ffmpeg libgomp1 libstdc++6 libvulkan1 mesa-vulkan-drivers && \
+    curl -fsSL "$YT_DLP_URL" -o /usr/local/bin/yt-dlp && \
+    chmod +x /usr/local/bin/yt-dlp && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /src/build/bin/whisper-cli /usr/local/bin/whisper-cli

@@ -5,6 +5,7 @@ norm_lang() {
   base="$(printf '%s' "$raw" | sed 's/[^a-z0-9].*$//')"
   case "$base" in
     ""|none|null|unknown|und|na) printf '' ;;
+    auto) printf auto ;;
     iw) printf he ;;
     in) printf id ;;
     jw) printf jv ;;
@@ -28,7 +29,7 @@ browser_candidates() {
 
 backend="$1"
 url="$2"
-image="${YT_WHISPER_IMAGE:-digtvbg.com:6000/yt-whisper-docker:$backend}"
+image="${YT_WHISPER_IMAGE:-yt-whisper-docker:$backend}"
 out_dir="$(realpath -m "${YT_WHISPER_OUTPUT_DIR:-$PWD/output}")"
 fmt="${YT_WHISPER_YTDLP_FORMAT:-bestaudio/best}"
 cookie_source="none"
@@ -83,25 +84,66 @@ downloaded="$(yt-dlp "${yt_args[@]}" --quiet --no-warnings --no-playlist -f "$fm
 
 stem="${downloaded:t:r}"
 rel="audio/${downloaded:t}"
-docker_args=(run --rm -v "$out_dir:/out")
+docker_args=(run --rm --user "$(id -u):$(id -g)" -v "$out_dir:/out")
+docker_env=(-e REL="$rel" -e STEM="$stem" -e LANG="$lang")
 no_gpu_arg=""
 
+[[ -n "${YT_WHISPER_THREADS:-}" ]] && docker_env+=(-e YT_WHISPER_THREADS="$YT_WHISPER_THREADS")
+[[ -n "${YT_WHISPER_MAX_CONTEXT:-}" ]] && docker_env+=(-e YT_WHISPER_MAX_CONTEXT="$YT_WHISPER_MAX_CONTEXT")
+[[ -n "${YT_WHISPER_MODEL_FILE:-}" ]] && docker_env+=(-e YT_WHISPER_MODEL_FILE="$YT_WHISPER_MODEL_FILE")
+
 case "$backend" in
-  cpu) no_gpu_arg="-ng" ;;
-  amd) [[ -e /dev/dri ]] || { printf '/dev/dri not found\n'; exit 1; }; docker_args+=(--device /dev/dri) ;;
-  nvidia) docker_args+=(--gpus all) ;;
-  *) printf 'usage: %s cpu|amd|nvidia URL\n' "$0"; exit 2 ;;
+  cpu)
+    no_gpu_arg="-ng"
+    ;;
+  amd)
+    [[ -e /dev/dri ]] || { printf '/dev/dri not found\n'; exit 1; }
+    docker_args+=(--device /dev/dri)
+    ;;
+  nvidia)
+    docker_args+=(--gpus all)
+    ;;
+  *)
+    printf 'usage: %s cpu|amd|nvidia URL\n' "$0"
+    exit 2
+    ;;
 esac
 
-docker "${docker_args[@]}" -e REL="$rel" -e STEM="$stem" -e LANG="$lang" -e NO_GPU_ARG="$no_gpu_arg" --entrypoint sh "$image" -c '
+docker_env+=(-e NO_GPU_ARG="$no_gpu_arg")
+
+docker "${docker_args[@]}" "${docker_env[@]}" --entrypoint sh "$image" -c '
 set -eu
 model="${YT_WHISPER_MODEL_FILE:-/models/large-v3/ggml-large-v3.bin}"
+threads="${YT_WHISPER_THREADS:-$(nproc)}"
 ffmpeg -nostdin -hide_banner -loglevel error -y -i "/out/$REL" -ar 16000 -ac 1 -c:a pcm_s16le "/out/wav/$STEM.wav"
-whisper-cli -m "$model" -f "/out/wav/$STEM.wav" -l "$LANG" ${NO_GPU_ARG:+$NO_GPU_ARG} -mc "${YT_WHISPER_MAX_CONTEXT:-0}" -otxt -osrt -of "/out/transcripts/$STEM" >"/out/logs/$STEM.log" 2>&1
+whisper-cli -m "$model" -f "/out/wav/$STEM.wav" -l "$LANG" -t "$threads" ${NO_GPU_ARG:+$NO_GPU_ARG} -mc "${YT_WHISPER_MAX_CONTEXT:-0}" -otxt -osrt -of "/out/transcripts/$STEM" >"/out/logs/$STEM.log" 2>&1
 '
 
 txt="$out_dir/transcripts/$stem.txt"
+srt="$out_dir/transcripts/$stem.srt"
 log="$out_dir/logs/$stem.log"
 [[ -f "$txt" ]] || { printf 'transcript not found: %s\n' "$txt"; tail -80 "$log" 2>/dev/null || true; exit 1; }
 
-printf '\nREADY_TEXT_FILE\n%s\nREADY_SRT_FILE\n%s\nREADY_LOG_FILE\n%s\n' "$txt" "$out_dir/transcripts/$stem.srt" "$log"
+if [[ "$backend" == amd ]]; then
+  if ! grep -Eq 'whisper_backend_init_gpu: using Vulkan|ggml_vulkan: Found [1-9][0-9]* Vulkan devices|whisper_model_load:[[:space:]]+Vulkan[0-9]+' "$log"; then
+    printf 'AMD/Vulkan backend was not verified in whisper log\n'
+    printf 'log: %s\n' "$log"
+    grep -Ei 'use gpu|gpu_device|vulkan|backend|device|no GPU|CPU' "$log" | tail -80 || true
+    exit 1
+  fi
+fi
+
+if [[ "$backend" == nvidia && "${YT_WHISPER_REQUIRE_GPU:-1}" == 1 ]]; then
+  if ! grep -Eiq 'whisper_backend_init_gpu: using CUDA|ggml_cuda|CUDA[0-9]' "$log"; then
+    printf 'NVIDIA/CUDA backend was not verified in whisper log\n'
+    printf 'log: %s\n' "$log"
+    grep -Ei 'use gpu|gpu_device|cuda|backend|device|no GPU|CPU' "$log" | tail -80 || true
+    exit 1
+  fi
+fi
+
+if [[ "${YT_WHISPER_KEEP_TEMP:-0}" != 1 ]]; then
+  rm -f -- "$downloaded" "$out_dir/wav/$stem.wav"
+fi
+
+printf '\nREADY_TEXT_FILE\n%s\nREADY_SRT_FILE\n%s\nREADY_LOG_FILE\n%s\n' "$txt" "$srt" "$log"
