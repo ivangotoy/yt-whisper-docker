@@ -59,6 +59,7 @@ yt_dlp_format="${YT_WHISPER_YTDLP_FORMAT:-ba[ext=m4a]/ba}"
 log_file="$log_dir/yt-whisper-$ts.log"
 yt_dlp_cookies_file=""
 yt_whisper_no_gpu_arg=""
+threads="${YT_WHISPER_THREADS:-$(nproc)}"
 if [ "${YT_WHISPER_NO_GPU:-0}" = "1" ]; then
   yt_whisper_no_gpu_arg="-ng"
 fi
@@ -103,6 +104,7 @@ printf 'Working...\n'
   printf 'MODEL_FILE=%s\n' "$model_file"
   printf 'YT_DLP_FORMAT=%s\n' "$yt_dlp_format"
   printf 'YT_WHISPER_MAX_CONTEXT=%s\n' "${YT_WHISPER_MAX_CONTEXT:-0}"
+  printf 'YT_WHISPER_THREADS=%s\n' "$threads"
   printf 'YT_WHISPER_LANG_REQUESTED=%s\n' "${YT_WHISPER_LANG:-auto}"
   printf 'YT_WHISPER_COOKIES_SET=%s\n' "$([ -n "${YT_WHISPER_COOKIES:-}" ] && printf yes || printf no)"
   printf 'YT_WHISPER_COOKIES_FROM_BROWSER_SET=%s\n' "$([ -n "${YT_WHISPER_COOKIES_FROM_BROWSER:-}" ] && printf yes || printf no)"
@@ -206,6 +208,7 @@ if ! "$whisper_bin" \
   -m "$model_file" \
   -f "$wav" \
   -l "$whisper_language" \
+  -t "$threads" \
   ${yt_whisper_no_gpu_arg:+$yt_whisper_no_gpu_arg} \
   -mc "${YT_WHISPER_MAX_CONTEXT:-0}" \
   -otxt \
