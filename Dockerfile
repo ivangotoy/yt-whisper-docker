@@ -1,4 +1,4 @@
-ARG UBUNTU_TAG=26.04
+ARG UBUNTU_IMAGE=digtvbg.com:6000/home/ubuntu:latest
 ARG WHISPER_CPP_REF=master
 ARG YT_WHISPER_MODEL=large-v3
 ARG WHISPER_BACKEND=cpu
@@ -6,7 +6,7 @@ ARG YT_WHISPER_NO_GPU=0
 ARG BUILD_JOBS=2
 ARG YT_DLP_URL="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux"
 
-FROM ubuntu:${UBUNTU_TAG} AS build
+FROM ${UBUNTU_IMAGE} AS build
 
 ARG WHISPER_CPP_REF
 ARG YT_WHISPER_MODEL
@@ -34,7 +34,7 @@ RUN git clone https://github.com/ggml-org/whisper.cpp.git /src && \
     mkdir -p /whisper-libs && \
     find /src/build -type f \( -name "libwhisper.so*" -o -name "libggml*.so*" \) -exec cp -av {} /whisper-libs/ \;
 
-FROM ubuntu:${UBUNTU_TAG}
+FROM ${UBUNTU_IMAGE}
 
 ARG YT_WHISPER_MODEL
 ARG WHISPER_BACKEND

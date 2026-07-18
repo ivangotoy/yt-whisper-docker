@@ -52,7 +52,7 @@ Useful build variables:
 | --- | --- |
 | `REGISTRY` | empty |
 | `IMAGE_NAME` | `yt-whisper-docker` |
-| `UBUNTU_TAG` | `26.04` |
+| `UBUNTU_IMAGE` | `digtvbg.com:6000/home/ubuntu:latest` |
 | `UBUNTU_VERSION` | `26.04` |
 | `CUDA_VERSION` | `13.3.0` |
 | `WHISPER_CPP_REF` | `master` |

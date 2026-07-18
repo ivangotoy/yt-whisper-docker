@@ -5,7 +5,7 @@ set -o pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 REGISTRY="${REGISTRY:-}"
 IMAGE_NAME="${IMAGE_NAME:-yt-whisper-docker}"
-UBUNTU_TAG="${UBUNTU_TAG:-26.04}"
+UBUNTU_IMAGE="${UBUNTU_IMAGE:-digtvbg.com:6000/home/ubuntu:latest}"
 UBUNTU_VERSION="${UBUNTU_VERSION:-26.04}"
 CUDA_VERSION="${CUDA_VERSION:-13.3.0}"
 WHISPER_CPP_REF="${WHISPER_CPP_REF:-master}"
@@ -25,7 +25,7 @@ image_tag() {
 
 build_cpu() {
   docker buildx build --load \
-    --build-arg UBUNTU_TAG="$UBUNTU_TAG" \
+    --build-arg UBUNTU_IMAGE="$UBUNTU_IMAGE" \
     --build-arg WHISPER_CPP_REF="$WHISPER_CPP_REF" \
     --build-arg YT_WHISPER_MODEL="$YT_WHISPER_MODEL" \
     --build-arg WHISPER_BACKEND=cpu \
@@ -38,7 +38,7 @@ build_cpu() {
 
 build_amd() {
   docker buildx build --load \
-    --build-arg UBUNTU_TAG="$UBUNTU_TAG" \
+    --build-arg UBUNTU_IMAGE="$UBUNTU_IMAGE" \
     --build-arg WHISPER_CPP_REF="$WHISPER_CPP_REF" \
     --build-arg YT_WHISPER_MODEL="$YT_WHISPER_MODEL" \
     --build-arg WHISPER_BACKEND=vulkan \
