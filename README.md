@@ -48,18 +48,18 @@ Build all three serially:
 
 Useful build variables:
 
-| Variable | Default |
-| --- | --- |
-| `REGISTRY` | empty |
-| `IMAGE_NAME` | `yt-whisper-docker` |
-| `UBUNTU_IMAGE` | `registry.example.com/home/ubuntu:latest` |
-| `UBUNTU_VERSION` | `26.04` |
-| `CUDA_VERSION` | `13.3.0` |
-| `WHISPER_CPP_REF` | `master` |
-| `YT_WHISPER_MODEL` | `large-v3` |
-| `BUILD_JOBS` | `nproc` |
-| `NVIDIA_BUILD_JOBS` | `24` |
-| `CMAKE_CUDA_ARCHITECTURES` | `75;80;86;90` |
+| Variable | Default | Used by |
+| --- | --- | --- |
+| `REGISTRY` | empty | all |
+| `IMAGE_NAME` | `yt-whisper-docker` | all |
+| `UBUNTU_IMAGE` | `registry.example.com/home/ubuntu:latest` | cpu, amd |
+| `UBUNTU_VERSION` | `26.04` | nvidia (`nvidia/cuda` tag suffix) |
+| `CUDA_VERSION` | `13.3.0` | nvidia |
+| `WHISPER_CPP_REF` | `master` | all |
+| `YT_WHISPER_MODEL` | `large-v3` | all |
+| `BUILD_JOBS` | `nproc` | cpu, amd |
+| `NVIDIA_BUILD_JOBS` | `24` | nvidia |
+| `CMAKE_CUDA_ARCHITECTURES` | `75;80;86;90` | nvidia |
 
 ## Run
 
