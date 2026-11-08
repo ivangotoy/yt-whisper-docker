@@ -45,6 +45,7 @@ no_gpu_arg=""
 docker_pid=""
 downloaded=""
 stem=""
+cookie_tmp=""
 
 on_signal() {
   if [[ -n "$docker_pid" ]]; then
@@ -60,6 +61,7 @@ on_signal() {
   exit "$1"
 }
 
+trap '[[ -n "$cookie_tmp" ]] && rm -f -- "$cookie_tmp"' EXIT
 trap 'on_signal 129' HUP
 trap 'on_signal 130' INT
 trap 'on_signal 143' TERM
@@ -88,7 +90,10 @@ mkdir -p "$out_dir/audio" "$out_dir/wav" "$out_dir/transcripts" "$out_dir/logs" 
 
 if [[ -n "${YT_WHISPER_COOKIES:-}" ]]; then
   [[ -f "$YT_WHISPER_COOKIES" ]] || { printf 'cookie file not found: %s\n' "$YT_WHISPER_COOKIES"; exit 1; }
-  yt_args=(--cookies "$YT_WHISPER_COOKIES")
+  cookie_tmp="$(mktemp -t yt-whisper-cookies.XXXXXX.txt)" || exit 1
+  chmod 600 "$cookie_tmp" || exit 1
+  cp -- "$YT_WHISPER_COOKIES" "$cookie_tmp" || exit 1
+  yt_args=(--cookies "$cookie_tmp")
   cookie_source="env:file:$YT_WHISPER_COOKIES"
 elif [[ -n "${YT_WHISPER_COOKIES_FROM_BROWSER:-}" ]]; then
   yt_args=(--cookies-from-browser "$YT_WHISPER_COOKIES_FROM_BROWSER")

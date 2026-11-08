@@ -87,6 +87,8 @@ Use a cookies file:
 
     YT_WHISPER_COOKIES="$HOME/Downloads/www.youtube.com_cookies.txt" ./scripts/run.sh amd URL
 
+The wrapper passes `yt-dlp` a mode 600 temporary copy of that file (created with `mktemp` in `$TMPDIR`, removed on exit and on interrupt), so `yt-dlp` does not rewrite the original export.
+
 Use browser cookies:
 
     YT_WHISPER_COOKIES_FROM_BROWSER=firefox ./scripts/run.sh cpu URL
