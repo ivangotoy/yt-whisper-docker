@@ -107,7 +107,7 @@ If no cookie variable is set, the wrapper tries common local browser profiles au
 | `YT_WHISPER_YTDLP_FORMAT` | `bestaudio/best` | Host `yt-dlp` format selector |
 | `YT_WHISPER_ALLOW_LANG_MISMATCH` | `0` | Allow forced language mismatch when set to `1` |
 | `YT_WHISPER_REQUIRE_GPU` | `1` for NVIDIA check | Require CUDA log verification for NVIDIA wrapper runs |
-| `YT_WHISPER_MODEL_FILE` | `/models/large-v3/ggml-large-v3.bin` | Override model path inside the container |
+| `YT_WHISPER_MODEL_FILE` | `/models/MODEL/ggml-MODEL.bin`, where `MODEL` is the image build value of `YT_WHISPER_MODEL` (default `large-v3`) | Override model path inside the container |
 
 ## Output
 

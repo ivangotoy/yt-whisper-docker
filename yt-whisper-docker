@@ -120,7 +120,7 @@ rm -f -- "$txt" "$srt" "$log"
 
 docker "${docker_args[@]}" "${docker_env[@]}" --entrypoint sh "$image" -c '
 set -eu
-model="${YT_WHISPER_MODEL_FILE:-/models/large-v3/ggml-large-v3.bin}"
+model="${YT_WHISPER_MODEL_FILE:-/models/${YT_WHISPER_MODEL:-large-v3}/ggml-${YT_WHISPER_MODEL:-large-v3}.bin}"
 threads="${YT_WHISPER_THREADS:-$(nproc)}"
 ffmpeg -nostdin -hide_banner -loglevel error -y -i "/out/$REL" -ar 16000 -ac 1 -c:a pcm_s16le "/out/wav/$STEM.wav"
 whisper-cli -m "$model" -f "/out/wav/$STEM.wav" -l "$LANG" -t "$threads" ${NO_GPU_ARG:+$NO_GPU_ARG} -mc "${YT_WHISPER_MAX_CONTEXT:-0}" -otxt -osrt -of "/out/transcripts/$STEM" >"/out/logs/$STEM.log" 2>&1
