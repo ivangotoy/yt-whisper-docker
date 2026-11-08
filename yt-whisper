@@ -63,7 +63,10 @@ threads="${YT_WHISPER_THREADS:-$(nproc)}"
 if [ "${YT_WHISPER_NO_GPU:-0}" = "1" ]; then
   yt_whisper_no_gpu_arg="-ng"
 fi
-trap 'rm -f "${yt_dlp_cookies_file:-}" 2>/dev/null || true' EXIT HUP INT TERM
+trap 'rm -f "${yt_dlp_cookies_file:-}" 2>/dev/null || true' EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 if [ -z "$yt_dlp_bin" ]; then
   printf 'yt-dlp not found in PATH\n'
