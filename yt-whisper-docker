@@ -90,7 +90,7 @@ mkdir -p "$out_dir/audio" "$out_dir/wav" "$out_dir/transcripts" "$out_dir/logs" 
 
 if [[ -n "${YT_WHISPER_COOKIES:-}" ]]; then
   [[ -f "$YT_WHISPER_COOKIES" ]] || { printf 'cookie file not found: %s\n' "$YT_WHISPER_COOKIES"; exit 1; }
-  cookie_tmp="$(mktemp -t yt-whisper-cookies.XXXXXX.txt)" || exit 1
+  cookie_tmp="$(mktemp "$out_dir/.yt-whisper-cookies.XXXXXX")" || exit 1
   chmod 600 "$cookie_tmp" || exit 1
   cp -- "$YT_WHISPER_COOKIES" "$cookie_tmp" || exit 1
   yt_args=(--cookies "$cookie_tmp")
