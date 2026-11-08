@@ -132,7 +132,7 @@ downloaded="$(yt-dlp "${yt_args[@]}" --quiet --no-warnings --no-playlist -f "$fm
 stem="${downloaded:t:r}"
 rel="audio/${downloaded:t}"
 docker_args+=(-v "$out_dir:/out")
-docker_env=(-e REL="$rel" -e STEM="$stem" -e LANG="$lang")
+docker_env=(-e REL="$rel" -e STEM="$stem" -e WHISPER_LANG="$lang")
 
 [[ -n "${YT_WHISPER_THREADS:-}" ]] && docker_env+=(-e YT_WHISPER_THREADS="$YT_WHISPER_THREADS")
 [[ -n "${YT_WHISPER_MAX_CONTEXT:-}" ]] && docker_env+=(-e YT_WHISPER_MAX_CONTEXT="$YT_WHISPER_MAX_CONTEXT")
@@ -150,7 +150,7 @@ set -eu
 model="${YT_WHISPER_MODEL_FILE:-/models/${YT_WHISPER_MODEL:-large-v3}/ggml-${YT_WHISPER_MODEL:-large-v3}.bin}"
 threads="${YT_WHISPER_THREADS:-$(nproc)}"
 ffmpeg -nostdin -hide_banner -loglevel error -y -i "/out/$REL" -ar 16000 -ac 1 -c:a pcm_s16le "/out/wav/$STEM.wav"
-whisper-cli -m "$model" -f "/out/wav/$STEM.wav" -l "$LANG" -t "$threads" ${NO_GPU_ARG:+$NO_GPU_ARG} -mc "${YT_WHISPER_MAX_CONTEXT:-0}" -otxt -osrt -of "/out/transcripts/$STEM" >"/out/logs/$STEM.log" 2>&1
+whisper-cli -m "$model" -f "/out/wav/$STEM.wav" -l "$WHISPER_LANG" -t "$threads" ${NO_GPU_ARG:+$NO_GPU_ARG} -mc "${YT_WHISPER_MAX_CONTEXT:-0}" -otxt -osrt -of "/out/transcripts/$STEM" >"/out/logs/$STEM.log" 2>&1
 ' &
 docker_pid=$!
 wait "$docker_pid"
