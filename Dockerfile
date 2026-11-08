@@ -54,8 +54,6 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /src/build/bin/whisper-cli /usr/local/bin/whisper-cli
-COPY --from=build /src/build/src/libwhisper.so* /usr/local/lib/
-COPY --from=build /src/build/ggml/src/libggml*.so* /usr/local/lib/
 COPY --from=build /whisper-libs/ /usr/local/lib/
 COPY --from=build /models /models
 COPY --from=build /whisper-cpp-revision.txt /usr/local/share/whisper-cpp-revision.txt
