@@ -120,7 +120,7 @@ detected_lang_raw="$(
     -f "$yt_dlp_format" \
     --skip-download \
     --print '%(language)s' \
-    "$url" 2>>"$log_file" | tail -n 1
+    -- "$url" 2>>"$log_file" | tail -n 1
 )"
 
 detected_lang="$(normalize_lang "$detected_lang_raw")"
@@ -176,7 +176,7 @@ downloaded_file="$(
     --no-simulate \
     --print after_move:filepath \
     -o "$audio_dir/%(title).180B-%(id)s.%(ext)s" \
-    "$url" 2>>"$log_file" | tail -n 1
+    -- "$url" 2>>"$log_file" | tail -n 1
 )"
 
 if [ -z "$downloaded_file" ] || [ ! -f "$downloaded_file" ]; then

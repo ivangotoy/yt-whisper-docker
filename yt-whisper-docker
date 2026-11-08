@@ -53,7 +53,7 @@ elif [[ -n "${YT_WHISPER_COOKIES_FROM_BROWSER:-}" ]]; then
   cookie_source="env:browser:$YT_WHISPER_COOKIES_FROM_BROWSER"
 else
   for c in "${(@f)$(browser_candidates)}"; do
-    if yt-dlp --cookies-from-browser "$c" --no-warnings --no-playlist -f "$fmt" --skip-download --print '%(language)s' "$url" >/dev/null 2>&1; then
+    if yt-dlp --cookies-from-browser "$c" --no-warnings --no-playlist -f "$fmt" --skip-download --print '%(language)s' -- "$url" >/dev/null 2>&1; then
       yt_args=(--cookies-from-browser "$c")
       cookie_source="auto:browser:$c"
       break
@@ -61,7 +61,7 @@ else
   done
 fi
 
-detected_raw="$(yt-dlp "${yt_args[@]}" --no-warnings --no-playlist -f "$fmt" --skip-download --print '%(language)s' "$url" 2>/dev/null | tail -1)"
+detected_raw="$(yt-dlp "${yt_args[@]}" --no-warnings --no-playlist -f "$fmt" --skip-download --print '%(language)s' -- "$url" 2>/dev/null | tail -1)"
 detected="$(norm_lang "$detected_raw")"
 
 if [[ -n "$requested" && "$requested" != auto ]]; then
@@ -79,7 +79,7 @@ fi
 
 printf 'COOKIE_SOURCE=%s\nAUTO_LANGUAGE_RAW=%s\nAUTO_LANGUAGE=%s\n' "$cookie_source" "$detected_raw" "$detected"
 
-downloaded="$(yt-dlp "${yt_args[@]}" --quiet --no-warnings --no-playlist -f "$fmt" -x --audio-format m4a --audio-quality 0 --restrict-filenames --no-simulate --print after_move:filepath -o "$out_dir/audio/%(title).180B-%(id)s.%(ext)s" "$url" | tail -1)"
+downloaded="$(yt-dlp "${yt_args[@]}" --quiet --no-warnings --no-playlist -f "$fmt" -x --audio-format m4a --audio-quality 0 --restrict-filenames --no-simulate --print after_move:filepath -o "$out_dir/audio/%(title).180B-%(id)s.%(ext)s" -- "$url" | tail -1)"
 [[ -f "$downloaded" ]] || { printf 'downloaded audio not found\n'; exit 1; }
 
 stem="${downloaded:t:r}"
