@@ -39,6 +39,26 @@ requested="$(norm_lang "${YT_WHISPER_LANG:-}")"
 lang=""
 yt_args=()
 
+docker_args=(run --rm --user "$(id -u):$(id -g)")
+no_gpu_arg=""
+
+case "$backend" in
+  cpu)
+    no_gpu_arg="-ng"
+    ;;
+  amd)
+    [[ -e /dev/dri ]] || { printf '/dev/dri not found\n'; exit 1; }
+    docker_args+=(--device /dev/dri)
+    ;;
+  nvidia)
+    docker_args+=(--gpus all)
+    ;;
+  *)
+    printf 'usage: %s cpu|amd|nvidia URL\n' "$0"
+    exit 2
+    ;;
+esac
+
 command -v docker >/dev/null 2>&1 || { printf 'docker not found in PATH\n'; exit 1; }
 command -v yt-dlp >/dev/null 2>&1 || { printf 'yt-dlp not found in PATH\n'; exit 1; }
 
@@ -84,30 +104,12 @@ downloaded="$(yt-dlp "${yt_args[@]}" --quiet --no-warnings --no-playlist -f "$fm
 
 stem="${downloaded:t:r}"
 rel="audio/${downloaded:t}"
-docker_args=(run --rm --user "$(id -u):$(id -g)" -v "$out_dir:/out")
+docker_args+=(-v "$out_dir:/out")
 docker_env=(-e REL="$rel" -e STEM="$stem" -e LANG="$lang")
-no_gpu_arg=""
 
 [[ -n "${YT_WHISPER_THREADS:-}" ]] && docker_env+=(-e YT_WHISPER_THREADS="$YT_WHISPER_THREADS")
 [[ -n "${YT_WHISPER_MAX_CONTEXT:-}" ]] && docker_env+=(-e YT_WHISPER_MAX_CONTEXT="$YT_WHISPER_MAX_CONTEXT")
 [[ -n "${YT_WHISPER_MODEL_FILE:-}" ]] && docker_env+=(-e YT_WHISPER_MODEL_FILE="$YT_WHISPER_MODEL_FILE")
-
-case "$backend" in
-  cpu)
-    no_gpu_arg="-ng"
-    ;;
-  amd)
-    [[ -e /dev/dri ]] || { printf '/dev/dri not found\n'; exit 1; }
-    docker_args+=(--device /dev/dri)
-    ;;
-  nvidia)
-    docker_args+=(--gpus all)
-    ;;
-  *)
-    printf 'usage: %s cpu|amd|nvidia URL\n' "$0"
-    exit 2
-    ;;
-esac
 
 docker_env+=(-e NO_GPU_ARG="$no_gpu_arg")
 
