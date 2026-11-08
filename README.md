@@ -124,6 +124,8 @@ Generated paths:
 
 By default, downloaded audio and temporary WAV are deleted after successful transcription. Use `YT_WHISPER_KEEP_TEMP=1` to keep them.
 
+Each run uses a uniquely named container (`yt-whisper-PID-RANDOM`). On Ctrl-C, `SIGTERM` or `SIGHUP` the wrapper kills that container, deletes the downloaded audio and partial WAV (unless `YT_WHISPER_KEEP_TEMP=1`), and exits with 130, 143 or 129.
+
 ## Verification status
 
 CPU was built and runtime verified:

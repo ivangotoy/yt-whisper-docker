@@ -39,8 +39,30 @@ requested="$(norm_lang "${YT_WHISPER_LANG:-}")"
 lang=""
 yt_args=()
 
-docker_args=(run --rm --user "$(id -u):$(id -g)")
+container_name="yt-whisper-$$-$RANDOM$RANDOM"
+docker_args=(run --rm --name "$container_name" --user "$(id -u):$(id -g)")
 no_gpu_arg=""
+docker_pid=""
+downloaded=""
+stem=""
+
+on_signal() {
+  if [[ -n "$docker_pid" ]]; then
+    while kill -0 "$docker_pid" 2>/dev/null; do
+      docker kill "$container_name" >/dev/null 2>&1 || sleep 0.5
+    done
+    wait "$docker_pid" 2>/dev/null
+  fi
+  if [[ "${YT_WHISPER_KEEP_TEMP:-0}" != 1 ]]; then
+    [[ -n "$downloaded" ]] && rm -f -- "$downloaded"
+    [[ -n "$stem" ]] && rm -f -- "$out_dir/wav/$stem.wav"
+  fi
+  exit "$1"
+}
+
+trap 'on_signal 129' HUP
+trap 'on_signal 130' INT
+trap 'on_signal 143' TERM
 
 case "$backend" in
   cpu)
@@ -124,7 +146,12 @@ model="${YT_WHISPER_MODEL_FILE:-/models/${YT_WHISPER_MODEL:-large-v3}/ggml-${YT_
 threads="${YT_WHISPER_THREADS:-$(nproc)}"
 ffmpeg -nostdin -hide_banner -loglevel error -y -i "/out/$REL" -ar 16000 -ac 1 -c:a pcm_s16le "/out/wav/$STEM.wav"
 whisper-cli -m "$model" -f "/out/wav/$STEM.wav" -l "$LANG" -t "$threads" ${NO_GPU_ARG:+$NO_GPU_ARG} -mc "${YT_WHISPER_MAX_CONTEXT:-0}" -otxt -osrt -of "/out/transcripts/$STEM" >"/out/logs/$STEM.log" 2>&1
-' || { rc=$?; printf 'docker run failed with exit code %s\n' "$rc"; printf 'log: %s\n' "$log"; tail -80 "$log" 2>/dev/null || true; exit 1; }
+' &
+docker_pid=$!
+wait "$docker_pid"
+rc=$?
+docker_pid=""
+(( rc == 0 )) || { printf 'docker run failed with exit code %s\n' "$rc"; printf 'log: %s\n' "$log"; tail -80 "$log" 2>/dev/null || true; exit 1; }
 
 [[ -f "$txt" ]] || { printf 'transcript not found: %s\n' "$txt"; tail -80 "$log" 2>/dev/null || true; exit 1; }
 
