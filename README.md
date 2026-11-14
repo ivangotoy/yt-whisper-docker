@@ -55,11 +55,20 @@ Useful build variables:
 | `UBUNTU_IMAGE` | `ubuntu:26.04` | cpu, amd (base image, for example a local mirror) |
 | `UBUNTU_VERSION` | `26.04` | nvidia (`nvidia/cuda` tag suffix) |
 | `CUDA_VERSION` | `13.3.0` | nvidia |
-| `WHISPER_CPP_REF` | `master` | all |
+| `WHISPER_CPP_REF` | pinned commit `5922450fbce1` | all |
+| `YT_DLP_URL` | pinned yt-dlp `2026.10.26` release `yt-dlp_linux` | all |
+| `YT_DLP_SHA256` | sha256 of the pinned yt-dlp | all |
+| `YT_WHISPER_MODEL_SHA256` | sha256 of `ggml-large-v3.bin`; empty for any other model unless set | all |
 | `YT_WHISPER_MODEL` | `large-v3` | all |
 | `BUILD_JOBS` | `nproc` | cpu, amd |
 | `NVIDIA_BUILD_JOBS` | `24` | nvidia |
 | `CMAKE_CUDA_ARCHITECTURES` | `75;80;86;90` | nvidia |
+
+whisper.cpp, yt-dlp and the model are pinned for reproducible builds, and the yt-dlp binary and the model are checked against their sha256. An empty `*_SHA256` skips that check. To build from the latest versions instead:
+
+    WHISPER_CPP_REF=master \
+    YT_DLP_URL=https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux YT_DLP_SHA256= \
+    ./scripts/build.sh amd
 
 ## Run
 
