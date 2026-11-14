@@ -60,6 +60,7 @@ docker_pid=""
 downloaded=""
 stem=""
 cookie_tmp=""
+dl_tmp=""
 probe_out=""
 probed=0
 
@@ -77,7 +78,13 @@ on_signal() {
   exit "$1"
 }
 
-trap '[[ -n "$cookie_tmp" ]] && rm -f -- "$cookie_tmp"' EXIT
+on_exit() {
+  [[ -n "$cookie_tmp" ]] && rm -f -- "$cookie_tmp"
+  [[ -n "$dl_tmp" ]] && rm -rf -- "$dl_tmp"
+  return 0
+}
+
+trap on_exit EXIT
 trap 'on_signal 129' HUP
 trap 'on_signal 130' INT
 trap 'on_signal 143' TERM
@@ -164,7 +171,13 @@ fi
 
 printf 'COOKIE_SOURCE=%s\nAUTO_LANGUAGE_RAW=%s\nAUTO_LANGUAGE=%s\n' "$cookie_source" "$detected_raw" "$detected"
 
-downloaded="$(yt-dlp "${yt_args[@]}" --quiet --no-warnings --no-playlist -f "$fmt" -x --audio-format m4a --audio-quality 0 --restrict-filenames --no-simulate --print after_move:filepath -o "$out_dir/audio/%(title).180B-%(id)s.%(ext)s" -- "$url" | tail -1)"
+# yt-dlp keeps .part and fragment files in a per-run temp dir and moves only
+# the finished file to audio/; the temp dir is removed afterwards, also on
+# failure or interrupt (-P is ignored for an absolute -o, so -o is relative).
+dl_tmp="$(mktemp -d "$out_dir/audio/.yt-whisper-tmp.XXXXXX")" || exit 1
+downloaded="$(yt-dlp "${yt_args[@]}" --quiet --no-warnings --no-playlist -f "$fmt" -x --audio-format m4a --audio-quality 0 --restrict-filenames --no-simulate --print after_move:filepath -P "home:$out_dir/audio" -P "temp:$dl_tmp" -o '%(title).180B-%(id)s.%(ext)s' -- "$url" | tail -1)"
+rm -rf -- "$dl_tmp"
+dl_tmp=""
 # yt-dlp is done with the cookie copy; do not leave it in the directory the
 # container mounts.
 if [[ -n "$cookie_tmp" ]]; then

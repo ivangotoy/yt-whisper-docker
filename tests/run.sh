@@ -198,6 +198,22 @@ elif [[ -n "$(print -rl -- "$case_dir"/out/.yt-whisper-cookies.*(N))" ]]; then b
 else ok; fi
 
 
+current="wrapper: SIGTERM during download leaves no partial file"
+new_case wrapper-part
+STUB_DOWNLOAD_SLEEP=3 YT_WHISPER_OUTPUT_DIR="$case_dir/out" setsid "$ROOT_DIR/yt-whisper-docker" cpu "$URL" >"$case_dir/stdout" 2>"$case_dir/stderr" &
+pid=$!
+if ! wait_ready; then bad "stub never started"; kill -TERM -- -$pid 2>/dev/null
+else
+  kill -TERM -- -$pid
+  wait $pid
+  rc=$?
+  left="$(cd "$case_dir/out" && find . -type f -o -type d -name '.yt-whisper*' | sort)"
+  if (( rc != 143 )); then bad "rc=$rc"
+  elif [[ -n "$left" ]]; then bad "left: $left"
+  else ok; fi
+fi
+
+
 current="entrypoint: Javanese (jv) reaches whisper as jw"
 new_case entry-jv
 : >"$case_dir/model.bin"
@@ -227,6 +243,22 @@ if (( rc != 2 )); then bad "rc=$rc"
 elif grep -q -- 'after_move' "$STUB_LOG"; then bad "download ran"
 else ok; fi
 
+
+current="entrypoint: SIGTERM during download leaves no partial file"
+new_case entry-part
+: >"$case_dir/model.bin"
+STUB_DOWNLOAD_SLEEP=3 YT_WHISPER_OUTPUT_DIR="$case_dir/out" YT_WHISPER_MODEL_FILE="$case_dir/model.bin" "$TEST_SH" "$ROOT_DIR/yt-whisper" "$URL" >"$case_dir/stdout" 2>"$case_dir/stderr" &
+pid=$!
+if ! wait_ready; then bad "stub never started"; kill $pid 2>/dev/null
+else
+  kill -TERM $pid
+  wait $pid
+  rc=$?
+  left="$(cd "$case_dir/out/audio" && find . -mindepth 1 | sort)"
+  if (( rc != 143 )); then bad "rc=$rc"
+  elif [[ -n "$left" ]]; then bad "left: $left"
+  else ok; fi
+fi
 
 print -r -- "passed=$pass failed=$fail"
 (( fail == 0 ))

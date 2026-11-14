@@ -75,12 +75,13 @@ model_file="${YT_WHISPER_MODEL_FILE:-/models/$model/ggml-$model.bin}"
 yt_dlp_format="${YT_WHISPER_YTDLP_FORMAT:-ba[ext=m4a]/ba}"
 log_file="$log_dir/yt-whisper-$ts.log"
 yt_dlp_cookies_file=""
+dl_tmp=""
 yt_whisper_no_gpu_arg=""
 threads="${YT_WHISPER_THREADS:-$(nproc)}"
 if [ "${YT_WHISPER_NO_GPU:-0}" = "1" ]; then
   yt_whisper_no_gpu_arg="-ng"
 fi
-trap 'rm -f "${yt_dlp_cookies_file:-}" 2>/dev/null || true' EXIT
+trap 'rm -f "${yt_dlp_cookies_file:-}" 2>/dev/null; [ -z "$dl_tmp" ] || rm -rf -- "$dl_tmp"' EXIT
 trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
@@ -184,6 +185,10 @@ if [ "${YT_WHISPER_PROBE_ONLY:-0}" = "1" ]; then
   exit 0
 fi
 
+# yt-dlp keeps .part and fragment files in a per-run temp dir and moves only
+# the finished file to audio/; the temp dir is removed afterwards, also on
+# failure or interrupt (-P is ignored for an absolute -o, so -o is relative).
+dl_tmp="$(mktemp -d "$audio_dir/.yt-whisper-tmp.XXXXXX")" || exit 1
 downloaded_file="$(
   yt_dlp_run \
     --quiet \
@@ -196,9 +201,13 @@ downloaded_file="$(
     --restrict-filenames \
     --no-simulate \
     --print after_move:filepath \
-    -o "$audio_dir/%(title).180B-%(id)s.%(ext)s" \
+    -P "home:$audio_dir" \
+    -P "temp:$dl_tmp" \
+    -o '%(title).180B-%(id)s.%(ext)s' \
     -- "$url" 2>>"$log_file" | tail -n 1
 )"
+rm -rf -- "$dl_tmp"
+dl_tmp=""
 
 if [ -z "$downloaded_file" ] || [ ! -f "$downloaded_file" ]; then
   printf 'downloaded audio not found\nlog: %s\n' "$log_file" >&2

@@ -127,6 +127,8 @@ Generated paths:
 
 By default, downloaded audio and temporary WAV are deleted after successful transcription. Use `YT_WHISPER_KEEP_TEMP=1` to keep them.
 
+During the download `yt-dlp` keeps `.part` and fragment files in a per-run `audio/.yt-whisper-tmp.*` directory and moves only the finished file into `audio/`. That directory is removed when the download ends, fails or is interrupted.
+
 Errors go to stderr; the `READY_*` result lines go to stdout.
 
 Each run uses a uniquely named container (`yt-whisper-PID-RANDOM`). On Ctrl-C, `SIGTERM` or `SIGHUP` the wrapper kills that container, deletes the downloaded audio and partial WAV (unless `YT_WHISPER_KEEP_TEMP=1`), and exits with 130, 143 or 129.
