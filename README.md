@@ -102,7 +102,7 @@ If no cookie variable is set, the wrapper tries common local browser profiles au
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `YT_WHISPER_OUTPUT_DIR` | `./output` | Host output directory |
-| `YT_WHISPER_LANG` | auto-detected | Force language, for example `bg`, `en`, `de` |
+| `YT_WHISPER_LANG` | auto-detected | Force language, for example `bg`, `en`, `de`; a code whisper.cpp does not support exits with 2 before the download. An auto-detected code whisper.cpp does not support falls back to whisper's own detection (`auto`) |
 | `YT_WHISPER_THREADS` | `nproc` inside the container | Inference threads passed to `whisper-cli -t` |
 | `YT_WHISPER_MAX_CONTEXT` | `0` | Value passed to `whisper-cli -mc` |
 | `YT_WHISPER_KEEP_TEMP` | `0` | Keep downloaded audio and WAV when set to `1` |

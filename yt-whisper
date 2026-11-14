@@ -27,6 +27,22 @@ normalize_lang() {
   esac
 }
 
+# Language codes whisper.cpp accepts (g_lang in src/whisper.cpp); whisper-cli
+# exits 0 without a transcript for any other code.
+whisper_langs="en zh de es ru ko fr ja pt tr pl ca nl ar sv it id hi fi vi he uk el ms
+  cs ro da hu ta no th ur hr bg lt la mi ml cy sk te fa lv bn sr az sl kn
+  et mk br eu is hy ne mn bs kk sq sw gl mr pa si km sn yo so af oc ka be
+  tg sd gu am yi lo uz fo ht ps tk nn mt sa lb my bo tl mg as tt haw ln ha
+  ba jw su yue"
+
+whisper_lang_ok() {
+  # shellcheck disable=SC2086 # split the list into words
+  case " $(printf '%s ' $whisper_langs)" in
+    *" $1 "*) return 0 ;;
+  esac
+  return 1
+}
+
 yt_dlp_run() {
   if [ -n "${yt_dlp_cookies_file:-}" ] && [ -n "${YT_WHISPER_COOKIES_FROM_BROWSER:-}" ]; then
     "$yt_dlp_bin" --cookies "$yt_dlp_cookies_file" --cookies-from-browser "$YT_WHISPER_COOKIES_FROM_BROWSER" "$@"
@@ -89,6 +105,12 @@ if [ ! -f "$model_file" ]; then
   exit 1
 fi
 
+requested_lang="$(normalize_lang "${YT_WHISPER_LANG:-auto}")"
+if [ -n "$requested_lang" ] && [ "$requested_lang" != "auto" ] && ! whisper_lang_ok "$requested_lang"; then
+  printf 'YT_WHISPER_LANG not supported by whisper.cpp: %s\n' "$requested_lang" >&2
+  exit 2
+fi
+
 mkdir -p "$audio_dir" "$wav_dir" "$transcript_dir" "$log_dir" || exit 1
 
 if [ -n "${YT_WHISPER_COOKIES:-}" ]; then
@@ -125,10 +147,9 @@ detected_lang_raw="$(
 )"
 
 detected_lang="$(normalize_lang "$detected_lang_raw")"
-requested_lang="$(normalize_lang "${YT_WHISPER_LANG:-auto}")"
 
 if [ -z "$requested_lang" ] || [ "$requested_lang" = "auto" ]; then
-  if [ -n "$detected_lang" ] && [ "$detected_lang" != "auto" ]; then
+  if [ -n "$detected_lang" ] && [ "$detected_lang" != "auto" ] && whisper_lang_ok "$detected_lang"; then
     whisper_language="$detected_lang"
   else
     whisper_language="auto"

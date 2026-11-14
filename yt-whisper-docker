@@ -14,6 +14,19 @@ norm_lang() {
   esac
 }
 
+# Language codes whisper.cpp accepts (g_lang in src/whisper.cpp); whisper-cli
+# exits 0 without a transcript for any other code.
+whisper_langs="en zh de es ru ko fr ja pt tr pl ca nl ar sv it id hi fi vi he uk el ms
+  cs ro da hu ta no th ur hr bg lt la mi ml cy sk te fa lv bn sr az sl kn
+  et mk br eu is hy ne mn bs kk sq sw gl mr pa si km sn yo so af oc ka be
+  tg sd gu am yi lo uz fo ht ps tk nn mt sa lb my bo tl mg as tt haw ln ha
+  ba jw su yue"
+
+whisper_lang_ok() {
+  local -a langs=(${=whisper_langs})
+  (( ${langs[(Ie)$1]} ))
+}
+
 browser_candidates() {
   [[ -f "$HOME/.config/thorium/Default/Cookies" ]] && print -r -- "chromium:$HOME/.config/thorium/Default"
   [[ -f "$HOME/.config/google-chrome/Default/Cookies" ]] && print -r -- "chrome:$HOME/.config/google-chrome/Default"
@@ -96,6 +109,11 @@ case "$backend" in
     ;;
 esac
 
+if [[ -n "$requested" && "$requested" != auto ]] && ! whisper_lang_ok "$requested"; then
+  printf 'YT_WHISPER_LANG not supported by whisper.cpp: %s\n' "$requested" >&2
+  exit 2
+fi
+
 command -v docker >/dev/null 2>&1 || { printf 'docker not found in PATH\n' >&2; exit 1; }
 command -v yt-dlp >/dev/null 2>&1 || { printf 'yt-dlp not found in PATH\n' >&2; exit 1; }
 
@@ -138,7 +156,7 @@ if [[ -n "$requested" && "$requested" != auto ]]; then
     exit 1
   fi
   lang="$requested"
-elif [[ -n "$detected" ]]; then
+elif [[ -n "$detected" ]] && whisper_lang_ok "$detected"; then
   lang="$detected"
 else
   lang=auto

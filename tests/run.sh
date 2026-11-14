@@ -169,6 +169,24 @@ elif ! grep -qx 'WHISPER_LANG=jw' "$STUB_DOCKER_LOG"; then bad "$(<$STUB_DOCKER_
 else ok; fi
 
 
+current="wrapper: detected language whisper does not know falls back to auto"
+new_case wrapper-unknown
+STUB_LANG=zxx run_wrapper cpu "$URL"
+rc=$?
+if (( rc != 0 )); then bad "rc=$rc"
+elif ! grep -qx 'WHISPER_LANG=auto' "$STUB_DOCKER_LOG"; then bad "$(<$STUB_DOCKER_LOG)"
+else ok; fi
+
+
+current="wrapper: forced unsupported language fails before the download"
+new_case wrapper-forced-unknown
+YT_WHISPER_LANG=zxx STUB_LANG=zxx run_wrapper cpu "$URL"
+rc=$?
+if (( rc != 2 )); then bad "rc=$rc"
+elif grep -q -- 'after_move' "$STUB_LOG"; then bad "download ran"
+else ok; fi
+
+
 current="entrypoint: Javanese (jv) reaches whisper as jw"
 new_case entry-jv
 : >"$case_dir/model.bin"
@@ -176,6 +194,26 @@ STUB_LANG=jv run_entry "$URL"
 rc=$?
 if (( rc != 0 )); then bad "rc=$rc $(<$case_dir/stderr)"
 elif ! grep -qx 'LANG=jw' "$STUB_WHISPER_LOG"; then bad "$(<$STUB_WHISPER_LOG)"
+else ok; fi
+
+
+current="entrypoint: detected language whisper does not know falls back to auto"
+new_case entry-unknown
+: >"$case_dir/model.bin"
+STUB_LANG=fil run_entry "$URL"
+rc=$?
+if (( rc != 0 )); then bad "rc=$rc $(<$case_dir/stderr)"
+elif ! grep -qx 'LANG=auto' "$STUB_WHISPER_LOG"; then bad "$(<$STUB_WHISPER_LOG)"
+else ok; fi
+
+
+current="entrypoint: forced unsupported language fails before the download"
+new_case entry-forced-unknown
+: >"$case_dir/model.bin"
+YT_WHISPER_LANG=fil STUB_LANG=fil run_entry "$URL"
+rc=$?
+if (( rc != 2 )); then bad "rc=$rc"
+elif grep -q -- 'after_move' "$STUB_LOG"; then bad "download ran"
 else ok; fi
 
 
