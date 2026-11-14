@@ -39,7 +39,7 @@ yt_dlp_run() {
 }
 
 if [ "$#" -ne 1 ]; then
-  printf 'usage: yt-whisper URL\n'
+  printf 'usage: yt-whisper URL\n' >&2
   exit 2
 fi
 
@@ -69,22 +69,22 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 if [ -z "$yt_dlp_bin" ]; then
-  printf 'yt-dlp not found in PATH\n'
+  printf 'yt-dlp not found in PATH\n' >&2
   exit 1
 fi
 
 if [ -z "$ffmpeg_bin" ]; then
-  printf 'ffmpeg not found in PATH\n'
+  printf 'ffmpeg not found in PATH\n' >&2
   exit 1
 fi
 
 if [ -z "$whisper_bin" ]; then
-  printf 'whisper-cli not found in PATH\n'
+  printf 'whisper-cli not found in PATH\n' >&2
   exit 1
 fi
 
 if [ ! -f "$model_file" ]; then
-  printf 'model not found: %s\n' "$model_file"
+  printf 'model not found: %s\n' "$model_file" >&2
   exit 1
 fi
 
@@ -92,7 +92,7 @@ mkdir -p "$audio_dir" "$wav_dir" "$transcript_dir" "$log_dir" || exit 1
 
 if [ -n "${YT_WHISPER_COOKIES:-}" ]; then
   if [ ! -f "$YT_WHISPER_COOKIES" ]; then
-    printf 'cookie file not found: %s\n' "$YT_WHISPER_COOKIES"
+    printf 'cookie file not found: %s\n' "$YT_WHISPER_COOKIES" >&2
     exit 1
   fi
   yt_dlp_cookies_file="$(mktemp -t yt-whisper-cookies.XXXXXX.txt)" || exit 1
@@ -141,8 +141,7 @@ else
       printf 'REQUESTED_LANGUAGE=%s\n' "$requested_lang"
       printf 'Set YT_WHISPER_ALLOW_LANG_MISMATCH=1 to override this guard.\n'
     } >>"$log_file"
-    printf 'language mismatch: detected=%s requested=%s\n' "${detected_lang:-unknown}" "$requested_lang"
-    printf 'log: %s\n' "$log_file"
+    printf 'language mismatch: detected=%s requested=%s\nlog: %s\n' "${detected_lang:-unknown}" "$requested_lang" "$log_file" >&2
     exit 1
   fi
   whisper_language="$requested_lang"
@@ -180,9 +179,8 @@ downloaded_file="$(
 )"
 
 if [ -z "$downloaded_file" ] || [ ! -f "$downloaded_file" ]; then
-  printf 'downloaded audio not found\n'
-  printf 'log: %s\n' "$log_file"
-  tail -80 "$log_file" 2>/dev/null || true
+  printf 'downloaded audio not found\nlog: %s\n' "$log_file" >&2
+  tail -80 "$log_file" >&2 2>/dev/null || true
   exit 1
 fi
 
@@ -201,9 +199,8 @@ if ! "$ffmpeg_bin" -nostdin -hide_banner -loglevel error -y \
   -ac 1 \
   -c:a pcm_s16le \
   "$wav" >>"$log_file" 2>&1; then
-  printf 'ffmpeg conversion failed\n'
-  printf 'log: %s\n' "$log_file"
-  tail -80 "$log_file" 2>/dev/null || true
+  printf 'ffmpeg conversion failed\nlog: %s\n' "$log_file" >&2
+  tail -80 "$log_file" >&2 2>/dev/null || true
   exit 1
 fi
 
@@ -217,16 +214,14 @@ if ! "$whisper_bin" \
   -otxt \
   -osrt \
   -of "$transcript_base" >>"$log_file" 2>&1; then
-  printf 'whisper transcription failed\n'
-  printf 'log: %s\n' "$log_file"
-  tail -80 "$log_file" 2>/dev/null || true
+  printf 'whisper transcription failed\nlog: %s\n' "$log_file" >&2
+  tail -80 "$log_file" >&2 2>/dev/null || true
   exit 1
 fi
 
 if [ ! -f "$txt" ]; then
-  printf 'transcript not found: %s\n' "$txt"
-  printf 'log: %s\n' "$log_file"
-  tail -80 "$log_file" 2>/dev/null || true
+  printf 'transcript not found: %s\nlog: %s\n' "$txt" "$log_file" >&2
+  tail -80 "$log_file" >&2 2>/dev/null || true
   exit 1
 fi
 
