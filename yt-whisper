@@ -17,6 +17,10 @@ normalize_lang() {
     in)
       printf 'id'
       ;;
+    fil)
+      # YouTube labels Filipino fil; whisper.cpp only has Tagalog, tl.
+      printf 'tl'
+      ;;
     jv|jw)
       # whisper.cpp names Javanese jw, not the ISO 639-1 jv.
       printf 'jw'

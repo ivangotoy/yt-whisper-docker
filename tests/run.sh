@@ -188,6 +188,14 @@ elif grep -q -- 'after_move' "$STUB_LOG"; then bad "download ran"
 else ok; fi
 
 
+current="wrapper: forced tl on a video labelled fil runs as tl"
+new_case wrapper-fil
+YT_WHISPER_LANG=tl STUB_LANG=fil run_wrapper cpu "$URL"
+rc=$?
+if (( rc != 0 )); then bad "rc=$rc $(<$case_dir/stderr)"
+elif ! grep -qx 'WHISPER_LANG=tl' "$STUB_DOCKER_LOG"; then bad "$(<$STUB_DOCKER_LOG)"
+else ok; fi
+
 current="wrapper: cookie copy is gone before the container starts"
 new_case wrapper-cookie
 print -r -- "# Netscape HTTP Cookie File" >"$case_dir/cookies.txt"
@@ -237,7 +245,7 @@ else ok; fi
 current="entrypoint: detected language whisper does not know falls back to auto"
 new_case entry-unknown
 : >"$case_dir/model.bin"
-STUB_LANG=fil run_entry "$URL"
+STUB_LANG=zxx run_entry "$URL"
 rc=$?
 if (( rc != 0 )); then bad "rc=$rc $(<$case_dir/stderr)"
 elif ! grep -qx 'LANG=auto' "$STUB_WHISPER_LOG"; then bad "$(<$STUB_WHISPER_LOG)"
@@ -247,12 +255,21 @@ else ok; fi
 current="entrypoint: forced unsupported language fails before the download"
 new_case entry-forced-unknown
 : >"$case_dir/model.bin"
-YT_WHISPER_LANG=fil STUB_LANG=fil run_entry "$URL"
+YT_WHISPER_LANG=zxx STUB_LANG=zxx run_entry "$URL"
 rc=$?
 if (( rc != 2 )); then bad "rc=$rc"
 elif grep -q -- 'after_move' "$STUB_LOG"; then bad "download ran"
 else ok; fi
 
+
+current="entrypoint: detected fil reaches whisper as tl"
+new_case entry-fil
+: >"$case_dir/model.bin"
+STUB_LANG=fil run_entry "$URL"
+rc=$?
+if (( rc != 0 )); then bad "rc=$rc $(<$case_dir/stderr)"
+elif ! grep -qx 'LANG=tl' "$STUB_WHISPER_LOG"; then bad "$(<$STUB_WHISPER_LOG)"
+else ok; fi
 
 current="entrypoint: SIGTERM during transcription removes audio and wav"
 new_case entry-signal

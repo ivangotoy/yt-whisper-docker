@@ -8,6 +8,8 @@ norm_lang() {
     auto) printf auto ;;
     iw) printf he ;;
     in) printf id ;;
+    # YouTube labels Filipino fil; whisper.cpp only has Tagalog, tl.
+    fil) printf tl ;;
     # whisper.cpp names Javanese jw, not the ISO 639-1 jv.
     jv|jw) printf jw ;;
     *) printf '%s' "$base" ;;
