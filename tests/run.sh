@@ -187,6 +187,17 @@ elif grep -q -- 'after_move' "$STUB_LOG"; then bad "download ran"
 else ok; fi
 
 
+current="wrapper: cookie copy is gone before the container starts"
+new_case wrapper-cookie
+print -r -- "# Netscape HTTP Cookie File" >"$case_dir/cookies.txt"
+YT_WHISPER_COOKIES="$case_dir/cookies.txt" run_wrapper cpu "$URL"
+rc=$?
+if (( rc != 0 )); then bad "rc=$rc $(<$case_dir/stderr)"
+elif ! grep -qx 'COOKIE_FILES=0' "$STUB_DOCKER_LOG"; then bad "cookie copy visible in /out: $(<$STUB_DOCKER_LOG)"
+elif [[ -n "$(print -rl -- "$case_dir"/out/.yt-whisper-cookies.*(N))" ]]; then bad "cookie copy left"
+else ok; fi
+
+
 current="entrypoint: Javanese (jv) reaches whisper as jw"
 new_case entry-jv
 : >"$case_dir/model.bin"

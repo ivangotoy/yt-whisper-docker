@@ -165,6 +165,12 @@ fi
 printf 'COOKIE_SOURCE=%s\nAUTO_LANGUAGE_RAW=%s\nAUTO_LANGUAGE=%s\n' "$cookie_source" "$detected_raw" "$detected"
 
 downloaded="$(yt-dlp "${yt_args[@]}" --quiet --no-warnings --no-playlist -f "$fmt" -x --audio-format m4a --audio-quality 0 --restrict-filenames --no-simulate --print after_move:filepath -o "$out_dir/audio/%(title).180B-%(id)s.%(ext)s" -- "$url" | tail -1)"
+# yt-dlp is done with the cookie copy; do not leave it in the directory the
+# container mounts.
+if [[ -n "$cookie_tmp" ]]; then
+  rm -f -- "$cookie_tmp"
+  cookie_tmp=""
+fi
 [[ -f "$downloaded" ]] || { printf 'downloaded audio not found\n' >&2; exit 1; }
 
 stem="${downloaded:t:r}"
