@@ -244,6 +244,23 @@ elif grep -q -- 'after_move' "$STUB_LOG"; then bad "download ran"
 else ok; fi
 
 
+current="entrypoint: SIGTERM during transcription removes audio and wav"
+new_case entry-signal
+: >"$case_dir/model.bin"
+STUB_WHISPER_SLEEP=2 YT_WHISPER_OUTPUT_DIR="$case_dir/out" YT_WHISPER_MODEL_FILE="$case_dir/model.bin" "$TEST_SH" "$ROOT_DIR/yt-whisper" "$URL" >"$case_dir/stdout" 2>"$case_dir/stderr" &
+pid=$!
+if ! wait_ready; then bad "stub never started"; kill $pid 2>/dev/null
+else
+  kill -TERM $pid
+  wait $pid
+  rc=$?
+  left="$(cd "$case_dir/out" && find audio wav -type f | sort)"
+  if (( rc != 143 )); then bad "rc=$rc"
+  elif [[ -n "$left" ]]; then bad "left: $left"
+  else ok; fi
+fi
+
+
 current="entrypoint: SIGTERM during download leaves no partial file"
 new_case entry-part
 : >"$case_dir/model.bin"

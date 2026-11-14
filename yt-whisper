@@ -76,15 +76,25 @@ yt_dlp_format="${YT_WHISPER_YTDLP_FORMAT:-ba[ext=m4a]/ba}"
 log_file="$log_dir/yt-whisper-$ts.log"
 yt_dlp_cookies_file=""
 dl_tmp=""
+downloaded_file=""
+wav=""
 yt_whisper_no_gpu_arg=""
 threads="${YT_WHISPER_THREADS:-$(nproc)}"
 if [ "${YT_WHISPER_NO_GPU:-0}" = "1" ]; then
   yt_whisper_no_gpu_arg="-ng"
 fi
 trap 'rm -f "${yt_dlp_cookies_file:-}" 2>/dev/null; [ -z "$dl_tmp" ] || rm -rf -- "$dl_tmp"' EXIT
-trap 'exit 129' HUP
-trap 'exit 130' INT
-trap 'exit 143' TERM
+# On a signal remove the downloaded audio and partial WAV like the host
+# wrapper does, unless YT_WHISPER_KEEP_TEMP=1.
+on_signal() {
+  if [ "${YT_WHISPER_KEEP_TEMP:-0}" != "1" ]; then
+    rm -f -- ${downloaded_file:+"$downloaded_file"} ${wav:+"$wav"}
+  fi
+  exit "$1"
+}
+trap 'on_signal 129' HUP
+trap 'on_signal 130' INT
+trap 'on_signal 143' TERM
 
 if [ -z "$yt_dlp_bin" ]; then
   printf 'yt-dlp not found in PATH\n' >&2
