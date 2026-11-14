@@ -160,5 +160,24 @@ elif (( $(grep -c '^CALL' "$STUB_LOG") != 2 )); then bad "expected 2 yt-dlp call
 else ok; fi
 
 
+current="wrapper: Javanese (jv/jw) reaches whisper as jw"
+new_case wrapper-jv
+STUB_LANG=jv run_wrapper cpu "$URL"
+rc=$?
+if (( rc != 0 )); then bad "rc=$rc"
+elif ! grep -qx 'WHISPER_LANG=jw' "$STUB_DOCKER_LOG"; then bad "$(<$STUB_DOCKER_LOG)"
+else ok; fi
+
+
+current="entrypoint: Javanese (jv) reaches whisper as jw"
+new_case entry-jv
+: >"$case_dir/model.bin"
+STUB_LANG=jv run_entry "$URL"
+rc=$?
+if (( rc != 0 )); then bad "rc=$rc $(<$case_dir/stderr)"
+elif ! grep -qx 'LANG=jw' "$STUB_WHISPER_LOG"; then bad "$(<$STUB_WHISPER_LOG)"
+else ok; fi
+
+
 print -r -- "passed=$pass failed=$fail"
 (( fail == 0 ))

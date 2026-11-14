@@ -17,8 +17,9 @@ normalize_lang() {
     in)
       printf 'id'
       ;;
-    jw)
-      printf 'jv'
+    jv|jw)
+      # whisper.cpp names Javanese jw, not the ISO 639-1 jv.
+      printf 'jw'
       ;;
     *)
       printf '%s' "$base"

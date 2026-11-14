@@ -8,7 +8,8 @@ norm_lang() {
     auto) printf auto ;;
     iw) printf he ;;
     in) printf id ;;
-    jw) printf jv ;;
+    # whisper.cpp names Javanese jw, not the ISO 639-1 jv.
+    jv|jw) printf jw ;;
     *) printf '%s' "$base" ;;
   esac
 }
