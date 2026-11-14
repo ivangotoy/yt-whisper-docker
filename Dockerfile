@@ -1,4 +1,4 @@
-ARG UBUNTU_IMAGE=registry.example.com/home/ubuntu:latest
+ARG UBUNTU_IMAGE=ubuntu:26.04
 ARG WHISPER_CPP_REF=master
 ARG YT_WHISPER_MODEL=large-v3
 ARG WHISPER_BACKEND=cpu

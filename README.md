@@ -52,7 +52,7 @@ Useful build variables:
 | --- | --- | --- |
 | `REGISTRY` | empty | all |
 | `IMAGE_NAME` | `yt-whisper-docker` | all |
-| `UBUNTU_IMAGE` | `registry.example.com/home/ubuntu:latest` | cpu, amd |
+| `UBUNTU_IMAGE` | `ubuntu:26.04` | cpu, amd (base image, for example a local mirror) |
 | `UBUNTU_VERSION` | `26.04` | nvidia (`nvidia/cuda` tag suffix) |
 | `CUDA_VERSION` | `13.3.0` | nvidia |
 | `WHISPER_CPP_REF` | `master` | all |

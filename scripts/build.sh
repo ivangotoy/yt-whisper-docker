@@ -5,7 +5,7 @@ set -o pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 REGISTRY="${REGISTRY:-}"
 IMAGE_NAME="${IMAGE_NAME:-yt-whisper-docker}"
-UBUNTU_IMAGE="${UBUNTU_IMAGE:-registry.example.com/home/ubuntu:latest}"
+UBUNTU_IMAGE="${UBUNTU_IMAGE:-ubuntu:26.04}"
 UBUNTU_VERSION="${UBUNTU_VERSION:-26.04}"
 CUDA_VERSION="${CUDA_VERSION:-13.3.0}"
 WHISPER_CPP_REF="${WHISPER_CPP_REF:-master}"
