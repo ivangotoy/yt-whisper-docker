@@ -25,7 +25,7 @@ Optional registry builds are supported with:
 - Linux or WSL2
 - Docker with Buildx
 - `yt-dlp` installed on the host
-- For AMD / Vulkan: `/dev/dri`
+- For AMD / Vulkan: `/dev/dri` (the wrapper adds the owning group of each `/dev/dri` node to the container, because `--user` drops supplementary groups)
 - For NVIDIA / CUDA: NVIDIA driver and NVIDIA Container Toolkit
 
 ## Build
@@ -109,6 +109,7 @@ If no cookie variable is set, the wrapper tries common local browser profiles au
 | `YT_WHISPER_YTDLP_FORMAT` | `bestaudio/best` | Host `yt-dlp` format selector |
 | `YT_WHISPER_ALLOW_LANG_MISMATCH` | `0` | Allow forced language mismatch when set to `1` |
 | `YT_WHISPER_REQUIRE_GPU` | `1` for NVIDIA check | Require CUDA log verification for NVIDIA wrapper runs |
+| `YT_WHISPER_IMAGE` | `yt-whisper-docker:BACKEND` | Image used by the wrapper |
 | `YT_WHISPER_MODEL_FILE` | `/models/MODEL/ggml-MODEL.bin`, where `MODEL` is the image build value of `YT_WHISPER_MODEL` (default `large-v3`) | Override model path inside the container |
 
 ## Output
@@ -126,28 +127,14 @@ Generated paths:
 
 By default, downloaded audio and temporary WAV are deleted after successful transcription. Use `YT_WHISPER_KEEP_TEMP=1` to keep them.
 
+Errors go to stderr; the `READY_*` result lines go to stdout.
+
 Each run uses a uniquely named container (`yt-whisper-PID-RANDOM`). On Ctrl-C, `SIGTERM` or `SIGHUP` the wrapper kills that container, deletes the downloaded audio and partial WAV (unless `YT_WHISPER_KEEP_TEMP=1`), and exits with 130, 143 or 129.
 
-## Verification status
+## Direct image use
 
-CPU was built and runtime verified:
+The image entrypoint `yt-whisper URL` runs the whole pipeline inside the container, including the download with the image's own `yt-dlp`:
 
-    use gpu = 0
-    n_threads = 32 / 32
+    docker run --rm --user "$(id -u):$(id -g)" --device /dev/dri --group-add "$(stat -c %g /dev/dri/renderD128)" -v "$PWD/output:/out" yt-whisper-docker:amd 'https://www.youtube.com/watch?v=VIDEO_ID'
 
-AMD / Vulkan was built and runtime verified on AMD Radeon RX 9070 XT:
-
-    Vulkan0 backend
-    n_threads = 32 / 32
-    output files owned by the host user
-
-NVIDIA / CUDA was built and static-image verified:
-
-    yt-dlp present
-    ffmpeg present
-    whisper-cli present
-    model present
-    YT_WHISPER_THREADS support present
-    WHISPER_BACKEND=cuda present
-
-NVIDIA runtime inference requires a host with NVIDIA GPU and NVIDIA Container Toolkit.
+It writes to `/out` (`YT_WHISPER_OUTPUT_DIR`) and reads `YT_WHISPER_LANG`, `YT_WHISPER_THREADS`, `YT_WHISPER_MAX_CONTEXT`, `YT_WHISPER_KEEP_TEMP`, `YT_WHISPER_ALLOW_LANG_MISMATCH`, `YT_WHISPER_MODEL_FILE`, `YT_WHISPER_NO_GPU` (`1` adds `-ng`), `YT_WHISPER_YTDLP_FORMAT` (default `ba[ext=m4a]/ba`), `YT_WHISPER_COOKIES` (a cookie file path inside the container), `YT_WHISPER_COOKIES_FROM_BROWSER` and `YT_WHISPER_PROBE_ONLY` (`1` prints the detected language and exits). Each run writes a timestamped log under `logs/`.
