@@ -7,9 +7,9 @@ ARG YT_WHISPER_MODEL_SHA256=64d182b440b98d5203c4f9bd541544d84c605196c4f7b845dfa1
 ARG WHISPER_BACKEND=cpu
 ARG YT_WHISPER_NO_GPU=0
 ARG BUILD_JOBS=2
-ARG YT_DLP_URL="https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.26/yt-dlp_linux"
+ARG YT_DLP_URL="https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/download/2026.11.04.232659/yt-dlp_linux"
 # sha256 of the YT_DLP_URL file; empty skips the check.
-ARG YT_DLP_SHA256=767ba9dce7052aa196f8b12652f433d76de128ba168966fa84b6394d5e6c6795
+ARG YT_DLP_SHA256=16e96c02ffefd0bd1fe8ae6cc943b16c96e575c29eed7038d15213034437bc34
 
 FROM ${UBUNTU_IMAGE} AS build
 
