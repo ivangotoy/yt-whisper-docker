@@ -51,8 +51,6 @@ build_amd() {
 
 build_nvidia() {
   docker buildx build --load \
-    --build-arg CUDA_VERSION="$CUDA_VERSION" \
-    --build-arg UBUNTU_VERSION="$UBUNTU_VERSION" \
     --build-arg BASE_CUDA_DEV_CONTAINER="nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION}" \
     --build-arg BASE_CUDA_RUN_CONTAINER="nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu${UBUNTU_VERSION}" \
     --build-arg WHISPER_CPP_REF="$WHISPER_CPP_REF" \

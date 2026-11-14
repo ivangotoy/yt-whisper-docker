@@ -8,23 +8,28 @@ ARG YT_DLP_URL="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp
 
 FROM ${UBUNTU_IMAGE} AS build
 
-ARG WHISPER_CPP_REF
-ARG YT_WHISPER_MODEL
-ARG WHISPER_BACKEND
-ARG BUILD_JOBS
-
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates curl git bash cmake build-essential pkg-config libgomp1 libvulkan-dev glslang-tools glslc spirv-headers && \
+    apt-get install -y --no-install-recommends ca-certificates curl git bash cmake build-essential pkg-config libvulkan-dev glslang-tools glslc spirv-headers && \
     rm -rf /var/lib/apt/lists/*
 
-RUN git clone https://github.com/ggml-org/whisper.cpp.git /src && \
+# Source and model layers do not depend on the backend, so the cpu and amd
+# builds share them (one clone and one model download for both flavors).
+ARG WHISPER_CPP_REF
+RUN git init -q /src && \
     cd /src && \
-    git checkout "$WHISPER_CPP_REF" && \
-    git rev-parse HEAD > /whisper-cpp-revision.txt && \
-    mkdir -p "/models/$YT_WHISPER_MODEL" && \
-    bash models/download-ggml-model.sh "$YT_WHISPER_MODEL" "/models/$YT_WHISPER_MODEL" && \
+    git fetch -q --depth 1 https://github.com/ggml-org/whisper.cpp.git "$WHISPER_CPP_REF" && \
+    git checkout -q --detach FETCH_HEAD && \
+    git rev-parse HEAD > /whisper-cpp-revision.txt
+
+ARG YT_WHISPER_MODEL
+RUN mkdir -p "/models/$YT_WHISPER_MODEL" && \
+    bash /src/models/download-ggml-model.sh "$YT_WHISPER_MODEL" "/models/$YT_WHISPER_MODEL"
+
+ARG WHISPER_BACKEND
+ARG BUILD_JOBS
+RUN cd /src && \
     case "$WHISPER_BACKEND" in \
       cpu) cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=OFF ;; \
       vulkan) cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=OFF -DGGML_VULKAN=ON ;; \
@@ -47,8 +52,13 @@ ENV WHISPER_BACKEND="${WHISPER_BACKEND}"
 ENV YT_WHISPER_LANG="auto"
 ENV YT_WHISPER_NO_GPU="${YT_WHISPER_NO_GPU}"
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates curl ffmpeg libgomp1 libstdc++6 libvulkan1 mesa-vulkan-drivers && \
+# The Vulkan loader and Mesa drivers are only needed by the vulkan build.
+RUN case "$WHISPER_BACKEND" in \
+      vulkan) gpu_pkgs="libvulkan1 mesa-vulkan-drivers" ;; \
+      *) gpu_pkgs="" ;; \
+    esac && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates curl ffmpeg libgomp1 libstdc++6 $gpu_pkgs && \
     curl -fsSL "$YT_DLP_URL" -o /usr/local/bin/yt-dlp && \
     chmod +x /usr/local/bin/yt-dlp && \
     rm -rf /var/lib/apt/lists/*

@@ -1,5 +1,3 @@
-ARG CUDA_VERSION
-ARG UBUNTU_VERSION
 ARG BASE_CUDA_DEV_CONTAINER=nvidia/cuda:13.3.0-devel-ubuntu26.04
 ARG BASE_CUDA_RUN_CONTAINER=nvidia/cuda:13.3.0-runtime-ubuntu26.04
 ARG WHISPER_CPP_REF=master
@@ -10,24 +8,27 @@ ARG YT_DLP_URL="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp
 
 FROM ${BASE_CUDA_DEV_CONTAINER} AS build
 
-ARG WHISPER_CPP_REF
-ARG YT_WHISPER_MODEL
-ARG BUILD_JOBS
-ARG CMAKE_CUDA_ARCHITECTURES
-
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LD_LIBRARY_PATH=/usr/local/cuda/compat:/usr/local/cuda/lib64
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates curl git bash cmake build-essential pkg-config libgomp1 && \
+    apt-get install -y --no-install-recommends ca-certificates curl git bash cmake build-essential pkg-config && \
     rm -rf /var/lib/apt/lists/*
 
-RUN git clone https://github.com/ggml-org/whisper.cpp.git /src && \
+ARG WHISPER_CPP_REF
+RUN git init -q /src && \
     cd /src && \
-    git checkout "$WHISPER_CPP_REF" && \
-    git rev-parse HEAD > /whisper-cpp-revision.txt && \
-    mkdir -p "/models/$YT_WHISPER_MODEL" && \
-    bash models/download-ggml-model.sh "$YT_WHISPER_MODEL" "/models/$YT_WHISPER_MODEL" && \
+    git fetch -q --depth 1 https://github.com/ggml-org/whisper.cpp.git "$WHISPER_CPP_REF" && \
+    git checkout -q --detach FETCH_HEAD && \
+    git rev-parse HEAD > /whisper-cpp-revision.txt
+
+ARG YT_WHISPER_MODEL
+RUN mkdir -p "/models/$YT_WHISPER_MODEL" && \
+    bash /src/models/download-ggml-model.sh "$YT_WHISPER_MODEL" "/models/$YT_WHISPER_MODEL"
+
+ARG BUILD_JOBS
+ARG CMAKE_CUDA_ARCHITECTURES
+RUN cd /src && \
     cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=OFF -DGGML_CUDA=1 -DCMAKE_CUDA_ARCHITECTURES="$CMAKE_CUDA_ARCHITECTURES" && \
     cmake --build build --target whisper-cli -j"$BUILD_JOBS" && \
     mkdir -p /whisper-libs && \
