@@ -64,6 +64,7 @@ cat >"$stubs/docker" <<'EOF'
 #!/usr/bin/env zsh
 case "$1" in
   kill) exit 0 ;;
+  image|pull) [[ -z "${STUB_NO_IMAGE:-}" ]]; exit $? ;;
   run) ;;
   *) exit 0 ;;
 esac
@@ -127,7 +128,7 @@ new_case() {
   export STUB_LOG="$case_dir/yt-dlp.calls" STUB_DOCKER_LOG="$case_dir/docker.calls"
   export STUB_WHISPER_LOG="$case_dir/whisper.calls" STUB_READY="$case_dir/ready"
   : >"$STUB_LOG"; : >"$STUB_DOCKER_LOG"; : >"$STUB_WHISPER_LOG"
-  unset STUB_LANG STUB_PROBE_FAIL STUB_DOWNLOAD_SLEEP STUB_WHISPER_SLEEP \
+  unset STUB_NO_IMAGE STUB_LANG STUB_PROBE_FAIL STUB_DOWNLOAD_SLEEP STUB_WHISPER_SLEEP \
     YT_WHISPER_LANG YT_WHISPER_COOKIES YT_WHISPER_COOKIES_FROM_BROWSER YT_WHISPER_KEEP_TEMP
   export PATH="$stubs:$ORIG_PATH"
 }
@@ -213,6 +214,15 @@ else
   else ok; fi
 fi
 
+
+current="wrapper: missing image fails before the download"
+new_case wrapper-no-image
+STUB_NO_IMAGE=1 run_wrapper cpu "$URL"
+rc=$?
+if (( rc != 1 )); then bad "rc=$rc"
+elif grep -q -- 'after_move' "$STUB_LOG"; then bad "download ran"
+elif ! grep -q 'could not be pulled' "$case_dir/stderr"; then bad "$(<$case_dir/stderr)"
+else ok; fi
 
 current="entrypoint: Javanese (jv) reaches whisper as jw"
 new_case entry-jv

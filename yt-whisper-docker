@@ -124,6 +124,12 @@ fi
 command -v docker >/dev/null 2>&1 || { printf 'docker not found in PATH\n' >&2; exit 1; }
 command -v yt-dlp >/dev/null 2>&1 || { printf 'yt-dlp not found in PATH\n' >&2; exit 1; }
 
+# Fail before the download when the image is neither local nor pullable.
+if ! docker image inspect "$image" >/dev/null 2>&1 && ! docker pull -q "$image" >/dev/null; then
+  printf 'image not found locally and could not be pulled: %s\n' "$image" >&2
+  exit 1
+fi
+
 mkdir -p "$out_dir/audio" "$out_dir/wav" "$out_dir/transcripts" "$out_dir/logs" || exit 1
 
 if [[ -n "${YT_WHISPER_COOKIES:-}" ]]; then

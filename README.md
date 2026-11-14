@@ -79,6 +79,8 @@ Use a custom image tag:
 
     YT_WHISPER_IMAGE=registry.example.com/yt-whisper-docker:amd ./scripts/run.sh amd URL
 
+The wrapper checks the image before downloading: a tag that is neither local nor pullable exits 1 without downloading anything.
+
 ## Cookies
 
 The normal workflow uses host `yt-dlp`, so browser cookies stay on the host and are not baked into images.
