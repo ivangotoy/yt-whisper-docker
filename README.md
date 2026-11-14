@@ -138,3 +138,9 @@ The image entrypoint `yt-whisper URL` runs the whole pipeline inside the contain
     docker run --rm --user "$(id -u):$(id -g)" --device /dev/dri --group-add "$(stat -c %g /dev/dri/renderD128)" -v "$PWD/output:/out" yt-whisper-docker:amd 'https://www.youtube.com/watch?v=VIDEO_ID'
 
 It writes to `/out` (`YT_WHISPER_OUTPUT_DIR`) and reads `YT_WHISPER_LANG`, `YT_WHISPER_THREADS`, `YT_WHISPER_MAX_CONTEXT`, `YT_WHISPER_KEEP_TEMP`, `YT_WHISPER_ALLOW_LANG_MISMATCH`, `YT_WHISPER_MODEL_FILE`, `YT_WHISPER_NO_GPU` (`1` adds `-ng`), `YT_WHISPER_YTDLP_FORMAT` (default `ba[ext=m4a]/ba`), `YT_WHISPER_COOKIES` (a cookie file path inside the container), `YT_WHISPER_COOKIES_FROM_BROWSER` and `YT_WHISPER_PROBE_ONLY` (`1` prints the detected language and exits). Each run writes a timestamped log under `logs/`.
+
+## Tests
+
+    ./tests/run.sh
+
+The tests run offline: `yt-dlp`, `docker`, `ffmpeg` and `whisper-cli` are replaced by stubs, so no network, image or GPU is needed. They need `zsh`, `sh` and `setsid`.

@@ -113,7 +113,8 @@ elif [[ -n "${YT_WHISPER_COOKIES_FROM_BROWSER:-}" ]]; then
 else
   # The successful probe already printed the language; reuse it instead of
   # asking YouTube a second time.
-  for c in "${(@f)$(browser_candidates)}"; do
+  # Unquoted (f) drops the empty element an empty candidate list would give.
+  for c in ${(f)"$(browser_candidates)"}; do
     if probe_out="$(yt-dlp --cookies-from-browser "$c" --no-warnings --no-playlist -f "$fmt" --skip-download --print '%(language)s' -- "$url" 2>/dev/null)"; then
       yt_args=(--cookies-from-browser "$c")
       cookie_source="auto:browser:$c"
