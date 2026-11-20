@@ -1,6 +1,5 @@
-> [!NOTE]
-> 🏡 **Home:** [git.digtvbg.com/ivangotoy/yt-whisper-docker](https://git.digtvbg.com/ivangotoy/yt-whisper-docker), where code, issues and releases live.
-> 🪞 **Mirror:** [github.com/ivangotoy/yt-whisper-docker](https://github.com/ivangotoy/yt-whisper-docker), read-only, synced automatically.
+> 🏠 **Home:** [git.digtvbg.com/ivangotoy/yt-whisper-docker](https://git.digtvbg.com/ivangotoy/yt-whisper-docker)\
+> 🔄 **Mirror:** [github.com/ivangotoy/yt-whisper-docker](https://github.com/ivangotoy/yt-whisper-docker) (read-only)
 
 # yt-whisper-docker
 
