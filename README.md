@@ -1,8 +1,8 @@
+> [!NOTE]
+> 🏡 **Home:** [git.digtvbg.com/ivangotoy/yt-whisper-docker](https://git.digtvbg.com/ivangotoy/yt-whisper-docker), where code, issues and releases live.
+> 🪞 **Mirror:** [github.com/ivangotoy/yt-whisper-docker](https://github.com/ivangotoy/yt-whisper-docker), read-only, synced automatically.
+
 # yt-whisper-docker
-
-MAIN REPOSITORY: https://git.digtvbg.com/ivangotoy/yt-whisper-docker
-
-READ-ONLY MIRROR: https://github.com/ivangotoy/yt-whisper-docker.git
 
 YouTube audio transcription with host `yt-dlp`, Docker, `ffmpeg`, and `whisper.cpp`.
 
